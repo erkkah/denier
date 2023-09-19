@@ -48,12 +48,16 @@ export function randomID(): string {
     return btoa(String(buffer)).slice(0, 16);
 }
 
-class Template extends DenierDirective {
-    private ID: string;
+export abstract class DenierComponent extends DenierDirective {
+    private ID = randomID();
+    private _template?: DenierTemplate;
 
-    constructor(private template: DenierTemplate) {
-        super();
-        this.ID = randomID();
+    get template(): DenierTemplate {
+        // ??? Catch errors
+        if (!this._template) {
+            this._template = this.build();
+        }
+        return this._template;
     }
 
     override value(): string {
@@ -65,11 +69,28 @@ class Template extends DenierDirective {
         if (!host) {
             throw new Error(`Invalid nested template`);
         }
-        if (this.template.isRendered) {
-            this.template.mount(host);
+
+        const t = this.template;
+        if (t.isRendered) {
+            t.mount(host);
         } else {
-            this.template.render(host);
+            t.render(host);
         }
+    }
+
+    /**
+     * Gets called _once_ to build the component template.
+     */
+    abstract build(): DenierTemplate;
+}
+
+class Template extends DenierComponent {
+    constructor(private _t: DenierTemplate) {
+        super();
+    }
+
+    override build(): DenierTemplate {
+        return this._t;
     }
 }
 
@@ -141,13 +162,14 @@ export class DenierTemplate {
             v += this.strings[i];
         }
 
+        v = v.trim();
         e.insertAdjacentHTML("afterbegin", v);
 
         for (const child of this.directives) {
             child.render(e);
         }
 
-        if (e.childElementCount == 1) {
+        if (e.childNodes.length == 1 && e.childElementCount == 1) {
             e = e.children.item(0)!;
         }
         
