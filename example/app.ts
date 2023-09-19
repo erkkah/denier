@@ -1,4 +1,4 @@
-import {html, on}  from ".";
+import {html, on}  from "../src";
 
 const button = html`<button ${on("click", () => {
     frame.update();

@@ -4,7 +4,7 @@ export abstract class DenierDirective {
     render(parent: Element) {}
 }
 
-export class Constant extends DenierDirective {
+class Constant extends DenierDirective {
     constructor(private c: any) {
         super();
     }
@@ -14,7 +14,7 @@ export class Constant extends DenierDirective {
     }
 }
 
-export class Dynamic extends DenierDirective {
+class Dynamic extends DenierDirective {
     private wrappedDirective?: DenierDirective;
 
     constructor(private f: () => any) {
@@ -96,6 +96,37 @@ export class DenierTemplate {
     private cleanupTarget?: any;
     private cleanupHandler?: (o: any) => void;
 
+    constructor(private strings: TemplateStringsArray, substitutions: any[]) {
+        for (const i in substitutions) {
+            const sub = substitutions[i];
+
+            if (!(sub instanceof DenierDirective)) {
+                if (typeof sub === "function") {
+                    this.directives.push(new Dynamic(sub));
+                } else if (sub instanceof DenierTemplate) {
+                    const template = new Template(sub)
+                    this.directives.push(template);
+                } else {
+                    this.directives.push(new Constant(sub));
+                }
+            } else {
+                this.directives.push(sub);
+            }
+        }
+    }
+
+    /**
+     * Renders this template into the specified `host` element.
+     * 
+     * Note that the `host` element will be taken over (replaced) by
+     * the result of rendering the template.
+     * 
+     * The `host` element must have a parent (be directly connected)
+     * at the time of render.
+     * 
+     * @param host a directly connected Element
+     * @returns this template, to allow for chaining
+     */
     render(host: Element): this {
         let e: Element = document.createElement("div");
 
@@ -130,6 +161,16 @@ export class DenierTemplate {
         return !!this.rendered;
     }
 
+    /**
+     * Registers a cleanup handler to be called when the rendered element
+     * gets disconnected.
+     * 
+     * The callback will be called asynchronously, a "short time" after
+     * the rendered elements `isConnected` property returns false.
+     * 
+     * @param target optional argument that will be passed to the cleanup handler
+     * @returns this template, to allow for chaining
+     */
     cleanup<T>(handler: (o: T) => void, target?: T): this {
         if (this.cleanupHandler) {
             throw new Error("Can only register one cleanup handler");
@@ -147,32 +188,31 @@ export class DenierTemplate {
         return this;
     }
 
-    constructor(private strings: TemplateStringsArray, substitutions: any[]) {
-        for (const i in substitutions) {
-            const sub = substitutions[i];
-
-            if (!(sub instanceof DenierDirective)) {
-                if (typeof sub === "function") {
-                    this.directives.push(new Dynamic(sub));
-                } else if (sub instanceof DenierTemplate) {
-                    const template = new Template(sub)
-                    this.directives.push(template);
-                } else {
-                    this.directives.push(new Constant(sub));
-                }
-            } else {
-                this.directives.push(sub);
-            }
-        }
-    }
-
-    mount (host: Element) {
+    /**
+     * Mounts the rendered result into a host element.
+     *
+     * Note that the `host` element will be taken over (replaced) by
+     * the rendered result element.
+     *
+     * If the rendered element is already mounted it will be moved
+     * from its old position in the DOM.
+     * 
+     * It is an error to mount an unrendered template.
+     */
+    mount(host: Element) {
         if (!this.rendered) {
             throw new Error("Cannot mount unrendered template");
         }
         host.parentElement?.replaceChild(this.rendered, host);
     }
 
+    /**
+     * Updates (re-renders) the template in place.
+     *
+     * Embedded directives gets shallowly re-evaluated.
+     * Specifically, embedded templates will be re-mounted as-is into
+     * the rendered result.
+     */
     update() {
         if (!this.rendered) {
             // ??? Change to debug print instead?
@@ -183,7 +223,9 @@ export class DenierTemplate {
     }
 }
 
+/**
+ * A raw string tag used to create DenierTemplate instances for rendering.
+ */
 export function html(strings: TemplateStringsArray, ...substitutions: any[]): DenierTemplate {
     return new DenierTemplate(strings, substitutions);
 }
-
