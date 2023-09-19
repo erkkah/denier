@@ -1,0 +1,7 @@
+{
+  "name": "denier",
+  "devDependencies": {
+    "parcel": "^2.9.3",
+    "typescript": "^5.2.2"
+  }
+}
