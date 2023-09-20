@@ -16,23 +16,25 @@ function hasContext(e: Element): boolean {
     return '_denierContext' in e;
 }
 
-class Provider<T extends Object> extends AttributeDirective {
-    private _value: T;
+class Provider extends AttributeDirective {
+    private _values: Object[];
 
-    constructor(value: T | (() => T)) {
+    constructor(values: Array<Object | (() => Object)>) {
         super();
-        this._value = (typeof value === "function") ? value() : value;
+        this._values = values.map((value) => (typeof value === "function") ? value() : value);
     }
 
     override process(e: Element): void {
         const context = getContext(e);
-        const type = this._value.constructor.name;
-        context[type] = this._value;
+        for (const value of this._values) {
+            const type = value.constructor.name;
+            context[type] = value;    
+        }
     }
 }
 
-export function provide<T extends Object>(value: T | (() => T)): Provider<T> {
-    return new Provider<T>(value);
+export function provide(...values: Array<Object | (() => Object)>): Provider {
+    return new Provider(values);
 }
 
 export function findContext<T extends Object>(e: Element, t: Constructor<T>): T | undefined {
