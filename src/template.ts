@@ -165,16 +165,16 @@ export class DenierTemplate {
         v = v.trim();
         e.insertAdjacentHTML("afterbegin", v);
 
-        for (const child of this.directives) {
-            child.render(e);
-        }
-
         if (e.childNodes.length == 1 && e.childElementCount == 1) {
             e = e.children.item(0)!;
         }
         
         this.rendered = e;
         this.mount(host);
+
+        for (const child of this.directives) {
+            child.render(e.parentElement!);
+        }
 
         return this;
     }

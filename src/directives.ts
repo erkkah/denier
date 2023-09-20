@@ -1,6 +1,8 @@
 import { DenierDirective, randomID } from "./template";
 
-abstract class AttributeDirective extends DenierDirective {
+export type Constructor<T extends Object> = { new(...args: any): T };
+
+export abstract class AttributeDirective extends DenierDirective {
     private ID = randomID();
 
     override value() {
@@ -9,13 +11,32 @@ abstract class AttributeDirective extends DenierDirective {
 
     override render(parent: Element) {
         const e = parent.querySelector(`*[denier="${this.ID}"]`);
-        if (e == null) {
-            throw new Error(`Directive ${this.constructor.name} must be in attribute position`)
+        if (!e) {
+            throw new Error(`Directive ${this.constructor.name} must be in attribute position`);
         }
 
         this.process(e);
     }
 
+    abstract process(e: Element): void;
+}
+
+export abstract class ElementDirective extends DenierDirective {
+    private ID = randomID();
+
+    override value(): string {
+        return `<div id="${this.ID}"></div>`;
+    }
+
+    override render(parent: Element) {
+        const e = parent.querySelector("#" + this.ID);
+        if (!e) {
+            throw new Error(`Directive ${this.constructor.name} must be in element position`);
+        }
+
+        this.process(e);
+    }
+    
     abstract process(e: Element): void;
 }
 
