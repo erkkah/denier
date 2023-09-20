@@ -1,7 +1,7 @@
 
 export abstract class DenierDirective {
     abstract value(): any;
-    render(parent: Element) {}
+    render(parent: Node) {}
 }
 
 class Constant extends DenierDirective {
@@ -95,23 +95,9 @@ class Template extends DenierComponent {
 }
 
 
-/*
-
-Substitution directives that correspond to elements are replaced by divs with generated unique IDs.
-Then - a second pass renders all directives into the generated divs.
-
-There is no need for a template to hold on to the children after the first render.
-As long as they are "mounted" - they can replace themselves.
-
-When a template is re-rendered, child directives are re-mounted in the newly rendered
-element. The children themselves are not re-rendered.
-
-*/
-
-
 export class DenierTemplate {
     private directives: DenierDirective[] = [];
-    private rendered: Element | null = null;
+    private rendered: Node | null = null;
 
     private cleanupTimer?: number;
     private cleanupTarget?: any;
@@ -148,7 +134,7 @@ export class DenierTemplate {
      * @param host a directly connected Element
      * @returns this template, to allow for chaining
      */
-    render(host: Element): this {
+    render(host: Node): this {
         let e: Element = document.createElement("div");
 
         if (this.strings.length === 0) {
@@ -165,15 +151,18 @@ export class DenierTemplate {
         v = v.trim();
         e.insertAdjacentHTML("afterbegin", v);
 
-        if (e.childNodes.length == 1 && e.childElementCount == 1) {
-            e = e.children.item(0)!;
+        let rendered: Node = e;
+        if (rendered.childNodes.length == 1) {
+            rendered = rendered.firstChild!;
         }
         
-        this.rendered = e;
+        this.rendered = rendered;
         this.mount(host);
 
+        const parent = rendered.parentNode!;
+
         for (const child of this.directives) {
-            child.render(e.parentElement!);
+            child.render(parent);
         }
 
         return this;
@@ -221,7 +210,7 @@ export class DenierTemplate {
      * 
      * It is an error to mount an unrendered template.
      */
-    mount(host: Element) {
+    mount(host: Node) {
         if (!this.rendered) {
             throw new Error("Cannot mount unrendered template");
         }
