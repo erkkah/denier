@@ -44,7 +44,7 @@ export abstract class DenierState<T> extends EventTarget {
         this.notify();
     }
 
-    get(): T {
+    get(): Readonly<T> {
         return this._state;
     }
 
