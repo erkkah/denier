@@ -2,8 +2,12 @@ import { Constructor, ElementDirective } from "./directives";
 import { findContext as findContextObject } from "./provider";
 import { DenierComponent, DenierDirective, DenierTemplate } from "./template";
 
-class Updater<T, S extends DenierState<T>> extends ElementDirective {
-    constructor(private cls: Constructor<S>, private renderable: DenierComponent | DenierTemplate, private filter?: (item: T) => boolean) {
+class Builder<T, S extends DenierState<T>> extends ElementDirective {
+    constructor(
+        private cls: Constructor<S>,
+        private builder: (state: S) => DenierComponent | DenierTemplate,
+        private filter?: (item: T) => boolean,
+    ) {
         super();
     }
 
@@ -11,9 +15,14 @@ class Updater<T, S extends DenierState<T>> extends ElementDirective {
         // Find parent element with context
         const state = findContextObject(e, this.cls);
         if (state) {
-            let template = this.renderable instanceof DenierComponent ? this.renderable.template : this.renderable;
-            state.listen(() => template.update());
-            this.renderable.render(e);
+            const result = this.builder(state);
+            const template = result instanceof DenierComponent ? result.template : result;
+            state.listen(() => {
+                if (!this.filter || this.filter(state.get())) {
+                    template.update();
+                }
+            });
+            result.render(e);
         } else {
             throw new Error(`No provider of ${this.cls.name} in context`);
         }
@@ -25,10 +34,6 @@ export abstract class DenierState<T> extends EventTarget {
 
     private _state: T;
 
-    get state(): T {
-        return this._state;
-    }
-
     constructor(initial: T) {
         super();
         this._state = { ...initial };
@@ -37,6 +42,10 @@ export abstract class DenierState<T> extends EventTarget {
     set(s: T) {
         this._state = { ...s };
         this.notify();
+    }
+
+    get(): T {
+        return this._state;
     }
 
     update(s: Partial<T>) {
@@ -53,6 +62,6 @@ export abstract class DenierState<T> extends EventTarget {
     }
 }
 
-export function update<T, S extends DenierState<T>>(s: Constructor<S>, t: DenierComponent | DenierTemplate, filter?: (item: T) => boolean) {
-    return new Updater(s, t, filter);
+export function build<T, S extends DenierState<T>>(s: Constructor<S>, b: (s: S) => DenierComponent | DenierTemplate, filter?: (item: T) => boolean) {
+    return new Builder(s, b, filter);
 }
