@@ -1,8 +1,32 @@
 {
   "name": "denier",
+  "description": "Denier is a tiny library for building web frontend stuff",
+  "author": {
+    "name": "Erik Agsjö"    
+  },
+  "license": "MIT",
+  "version": "0.1.0",
+  "source": "src/index.ts",
+  "main": "lib/index.js",
+  "module": "lib/module.js",
+  "types": "lib/types.d.ts",
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "parcel build",
+    "prepack": "npm run build"
+  },
   "devDependencies": {
+    "@parcel/packager-ts": "^2.9.3",
+    "@parcel/transformer-typescript-types": "^2.9.3",
     "csstype": "^3.1.2",
     "parcel": "^2.9.3",
     "typescript": "^5.2.2"
+  },
+  "targets": {
+    "main": {
+      "optimize": false
+    }
   }
 }
