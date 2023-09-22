@@ -3,65 +3,70 @@ import { findContext as findContextObject } from "./provider";
 import { DenierComponent, DenierDirective, DenierTemplate } from "./template";
 
 class Builder<T, S extends DenierState<T>> extends ElementDirective {
-    constructor(
-        private cls: Constructor<S>,
-        private builder: (state: S) => DenierComponent | DenierTemplate,
-        private filter?: (item: T) => boolean,
-    ) {
-        super();
-    }
+  constructor(
+    private cls: Constructor<S>,
+    private builder: (state: S) => DenierComponent | DenierTemplate,
+    private filter?: (item: T) => boolean
+  ) {
+    super();
+  }
 
-    override process(e: Element) {
-        // Find parent element with context
-        const state = findContextObject(e, this.cls);
-        if (state) {
-            const result = this.builder(state);
-            const template = result instanceof DenierComponent ? result.template : result;
-            state.listen(() => {
-                if (!this.filter || this.filter(state.get())) {
-                    template.update();
-                }
-            });
-            result.render(e);
-        } else {
-            throw new Error(`No provider of ${this.cls.name} in context`);
+  override process(e: Element) {
+    // Find parent element with context
+    const state = findContextObject(e, this.cls);
+    if (state) {
+      const result = this.builder(state);
+      const template =
+        result instanceof DenierComponent ? result.template : result;
+      state.listen(() => {
+        if (!this.filter || this.filter(state.get())) {
+          template.update();
         }
+      });
+      result.render(e);
+    } else {
+      throw new Error(`No provider of ${this.cls.name} in context`);
     }
+  }
 }
 
 export abstract class DenierState<T> extends EventTarget {
-    static readonly EVENT = "DenierState";
+  static readonly EVENT = "DenierState";
 
-    private _state: T;
+  private _state: T;
 
-    constructor(initial: T) {
-        super();
-        this._state = { ...initial };
-    }
+  constructor(initial: T) {
+    super();
+    this._state = { ...initial };
+  }
 
-    set(s: T) {
-        this._state = { ...s };
-        this.notify();
-    }
+  set(s: T) {
+    this._state = { ...s };
+    this.notify();
+  }
 
-    get(): Readonly<T> {
-        return this._state;
-    }
+  get(): Readonly<T> {
+    return this._state;
+  }
 
-    update(s: Partial<T>) {
-        this._state = { ...this._state, ...s };
-        this.notify();
-    }
+  update(s: Partial<T>) {
+    this._state = { ...this._state, ...s };
+    this.notify();
+  }
 
-    listen(cb: () => void) {
-        this.addEventListener(DenierState.EVENT, cb);
-    }
+  listen(cb: () => void) {
+    this.addEventListener(DenierState.EVENT, cb);
+  }
 
-    private notify() {
-        this.dispatchEvent(new CustomEvent(DenierState.EVENT));
-    }
+  private notify() {
+    this.dispatchEvent(new CustomEvent(DenierState.EVENT));
+  }
 }
 
-export function build<T, S extends DenierState<T>>(s: Constructor<S>, b: (s: S) => DenierComponent | DenierTemplate, filter?: (item: T) => boolean) {
-    return new Builder(s, b, filter);
+export function build<T, S extends DenierState<T>>(
+  s: Constructor<S>,
+  b: (s: S) => DenierComponent | DenierTemplate,
+  filter?: (item: T) => boolean
+) {
+  return new Builder(s, b, filter);
 }
