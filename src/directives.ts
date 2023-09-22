@@ -1,4 +1,5 @@
-import { DenierDirective, randomID } from "./template";
+import { randomID } from "./id";
+import { DenierDirective } from "./template";
 
 export type Constructor<T extends Object> = { new (...args: any): T };
 

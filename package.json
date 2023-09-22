@@ -25,8 +25,16 @@
     "typescript": "^5.2.2"
   },
   "targets": {
-    "main": {
-      "optimize": false
+    "main": {},
+    "module": {},
+    "cdn": {
+      "context": "browser",
+      "optimize": true,
+      "outputFormat": "global",
+      "includeNodeModules": false,
+      "sourceMap": false,
+      "distDir": "dist",
+      "source": "src/windowglobal.ts"
     }
   }
 }

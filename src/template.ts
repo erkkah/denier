@@ -1,3 +1,5 @@
+import { randomID } from "./id";
+
 export abstract class DenierDirective {
   abstract value(): any;
   render(parent: Node) {}
@@ -39,12 +41,6 @@ class Dynamic extends DenierDirective {
   override render(e: Element) {
     this.wrappedDirective?.render(e);
   }
-}
-
-export function randomID(): string {
-  const buffer = new Uint8Array(13);
-  window.crypto.getRandomValues(buffer);
-  return btoa(String(buffer)).slice(0, 16);
 }
 
 export abstract class DenierComponent extends DenierDirective {
