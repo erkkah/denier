@@ -1,6 +1,7 @@
+import { DenierComponent } from "./component";
 import { Constructor, ElementDirective } from "./directives";
 import { findContext as findContextObject } from "./provider";
-import { DenierComponent, DenierDirective, DenierTemplate } from "./template";
+import { DenierTemplate } from "./template";
 
 class Builder<T, S extends DenierState<T>> extends ElementDirective {
   constructor(
@@ -8,7 +9,7 @@ class Builder<T, S extends DenierState<T>> extends ElementDirective {
     private builder: (state: S) => DenierComponent | DenierTemplate,
     private filter?: (item: T) => boolean
   ) {
-    super();
+    super("builder");
   }
 
   override process(e: Element) {

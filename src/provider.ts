@@ -1,9 +1,10 @@
+import { DenierComponent } from "./component";
 import {
   AttributeDirective,
   Constructor,
   ElementDirective,
 } from "./directives";
-import { DenierTemplate, DenierComponent } from "./template";
+import { DenierTemplate } from "./template";
 
 type DenierContext = Record<string, unknown>;
 type DenierContextHolder = Element & { _denierContext?: DenierContext };
@@ -24,7 +25,7 @@ class Provider extends AttributeDirective {
   private _values: Object[];
 
   constructor(values: Array<Object | (() => Object)>) {
-    super();
+    super("provider");
     this._values = values.map((value) =>
       typeof value === "function" ? value() : value
     );
@@ -61,7 +62,7 @@ export function findContext<T extends Object>(
 
 class Consumer<T extends Object> extends ElementDirective {
   constructor(private cls: Constructor<T>, private cb: (t: T) => any) {
-    super();
+    super("consumer");
   }
 
   override process(e: Element) {

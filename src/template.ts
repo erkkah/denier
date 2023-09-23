@@ -1,9 +1,10 @@
-import { randomID } from "./id";
-
-export abstract class DenierDirective {
-  abstract value(): any;
-  render(parent: Node) {}
-}
+import { DenierComponent } from "./component";
+import {
+  debugTraceException,
+  popDebugTrace,
+  debugTrace as pushDebugTrace,
+} from "./debug";
+import { DenierDirective } from "./directives";
 
 class Constant extends DenierDirective {
   constructor(private c: any) {
@@ -41,42 +42,6 @@ class Dynamic extends DenierDirective {
   override render(e: Element) {
     this.wrappedDirective?.render(e);
   }
-}
-
-export abstract class DenierComponent extends DenierDirective {
-  private ID = randomID();
-  private _template?: DenierTemplate;
-
-  get template(): DenierTemplate {
-    // ??? Catch errors
-    if (!this._template) {
-      this._template = this.build();
-    }
-    return this._template;
-  }
-
-  override value(): string {
-    return `<div id="${this.ID}"></div>`;
-  }
-
-  override render(parent: Element) {
-    const host = (parent as HTMLDivElement).querySelector("#" + this.ID);
-    if (!host) {
-      throw new Error(`Invalid nested template`);
-    }
-
-    const t = this.template;
-    if (t.isRendered) {
-      t.mount(host);
-    } else {
-      t.render(host);
-    }
-  }
-
-  /**
-   * Gets called _once_ to build the component template.
-   */
-  abstract build(): DenierTemplate;
 }
 
 class Template extends DenierComponent {
@@ -143,23 +108,33 @@ export class DenierTemplate {
     }
 
     v = v.trim();
-    e.insertAdjacentHTML("afterbegin", v);
 
-    let rendered: Node = e;
-    if (rendered.childNodes.length == 1) {
-      rendered = rendered.firstChild!;
+    try {
+      e.insertAdjacentHTML("afterbegin", v);
+
+      let rendered: Node = e;
+      if (rendered.childNodes.length == 1) {
+        rendered = rendered.firstChild!;
+      }
+
+      this.rendered = rendered;
+      this.mount(host);
+
+      pushDebugTrace(v, rendered);
+
+      const parent = rendered.parentNode!;
+
+      for (const child of this.directives) {
+        child.render(parent);
+      }
+
+      return this;
+    } catch (err) {
+      debugTraceException(err);
+      throw err;
+    } finally {
+      popDebugTrace();
     }
-
-    this.rendered = rendered;
-    this.mount(host);
-
-    const parent = rendered.parentNode!;
-
-    for (const child of this.directives) {
-      child.render(parent);
-    }
-
-    return this;
   }
 
   get isRendered(): boolean {

@@ -1,23 +1,33 @@
 import { randomID } from "./id";
-import { DenierDirective } from "./template";
 
 export type Constructor<T extends Object> = { new (...args: any): T };
 
+export abstract class DenierDirective {
+  abstract value(): any;
+  render(parent: Node) {}
+}
+
 export abstract class AttributeDirective extends DenierDirective {
-  private ID = randomID();
+  private ID: string
+
+  constructor(prefix: string) {
+    super();
+    this.ID = randomID(prefix);
+  }
 
   override value() {
-    return `denier="${this.ID}"`;
+    return `denier-attr="${this.ID}"`;
   }
 
   override render(parent: Element) {
-    const e = parent.querySelector(`*[denier="${this.ID}"]`);
+    const e = parent.querySelector(`*[denier-attr="${this.ID}"]`);
     if (!e) {
       throw new Error(
         `Directive ${this.constructor.name} must be in attribute position`
       );
     }
 
+    e.removeAttribute("denier-attr");
     this.process(e);
   }
 
@@ -25,20 +35,27 @@ export abstract class AttributeDirective extends DenierDirective {
 }
 
 export abstract class ElementDirective extends DenierDirective {
-  private ID = randomID();
+  private ID: string;
+
+  constructor(prefix: string) {
+    super();
+    this.ID = randomID(prefix);
+  }
 
   override value(): string {
-    return `<div id="${this.ID}"></div>`;
+    return `<div denier-elem="${this.ID}"></div>`;
   }
 
   override render(parent: Element) {
-    const e = parent.querySelector("#" + this.ID);
+    // const e = parent.querySelector("#" + this.ID);
+    const e = parent.querySelector(`*[denier-elem="${this.ID}"]`);
     if (!e) {
       throw new Error(
         `Directive ${this.constructor.name} must be in element position`
       );
     }
 
+    e.removeAttribute("denier-elem");
     this.process(e);
   }
 
@@ -47,7 +64,7 @@ export abstract class ElementDirective extends DenierDirective {
 
 class EventDirective extends AttributeDirective {
   constructor(private event: string, private handler: () => void) {
-    super();
+    super("event");
   }
 
   override process(e: Element): void {
@@ -61,7 +78,7 @@ export function on(event: string, handler: () => void): EventDirective {
 
 class RefDirective<T extends Element> extends AttributeDirective {
   constructor(private cb: (e: T) => void) {
-    super();
+    super("ref");
   }
 
   override process(e: Element) {
