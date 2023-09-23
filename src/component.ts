@@ -1,29 +1,17 @@
-import { DenierDirective } from "./directives";
-import { randomID } from "./id";
+import { ElementDirective } from "./directives";
 import { DenierTemplate, html } from "./template";
 
-export abstract class DenierComponent extends DenierDirective {
-  private ID = randomID("component");
+export abstract class DenierComponent extends ElementDirective {
   private _template?: DenierTemplate;
 
   get template(): DenierTemplate {
-    // ??? Catch errors
     if (!this._template) {
       this._template = this.build();
     }
     return this._template;
   }
 
-  override value(): string {
-    return `<div id="${this.ID}"></div>`;
-  }
-
-  override render(parent: Element) {
-    const host = (parent as HTMLDivElement).querySelector("#" + this.ID);
-    if (!host) {
-      throw new Error(`Invalid nested template`);
-    }
-
+  override process(host: Element) {
     const t = this.template;
     if (t.isRendered) {
       t.mount(host);

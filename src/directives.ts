@@ -1,3 +1,4 @@
+import { DEBUG } from "./debug";
 import { randomID } from "./id";
 
 export type Constructor<T extends Object> = { new (...args: any): T };
@@ -7,56 +8,67 @@ export abstract class DenierDirective {
   render(parent: Node) {}
 }
 
-export abstract class AttributeDirective extends DenierDirective {
-  private ID: string
+abstract class IDDirective extends DenierDirective {
+  private ID = randomID();
 
-  constructor(prefix: string) {
-    super();
-    this.ID = randomID(prefix);
+  get attrName(): string {
+    return `denier-${this.ID}`;
   }
 
+  get attr(): string {
+    if (DEBUG) {
+      return `denier-${this.ID}="${this.debugInfo()}"`;
+    } else {
+      return this.attrName;
+    }
+  }
+
+  abstract debugInfo(): string;
+}
+
+export abstract class AttributeDirective extends IDDirective {
   override value() {
-    return `denier-attr="${this.ID}"`;
+    return this.attr;
   }
 
   override render(parent: Element) {
-    const e = parent.querySelector(`*[denier-attr="${this.ID}"]`);
+    const e = parent.querySelector(`*[${this.attr}]`);
     if (!e) {
       throw new Error(
         `Directive ${this.constructor.name} must be in attribute position`
       );
     }
 
-    e.removeAttribute("denier-attr");
+    e.removeAttribute(this.attrName);
     this.process(e);
+  }
+
+  override debugInfo(): string {
+    return `a:${this.constructor.name}`;
   }
 
   abstract process(e: Element): void;
 }
 
-export abstract class ElementDirective extends DenierDirective {
-  private ID: string;
-
-  constructor(prefix: string) {
-    super();
-    this.ID = randomID(prefix);
-  }
-
+export abstract class ElementDirective extends IDDirective {
   override value(): string {
-    return `<div denier-elem="${this.ID}"></div>`;
+    return `<div ${this.attr}></div>`;
   }
 
   override render(parent: Element) {
-    // const e = parent.querySelector("#" + this.ID);
-    const e = parent.querySelector(`*[denier-elem="${this.ID}"]`);
+    const e = parent.querySelector(`*[${this.attr}]`);
     if (!e) {
       throw new Error(
         `Directive ${this.constructor.name} must be in element position`
       );
     }
 
-    e.removeAttribute("denier-elem");
+    e.removeAttribute(this.attrName);
     this.process(e);
+  }
+
+  override debugInfo(): string {
+    return `e:${this.constructor.name}`;
   }
 
   abstract process(e: Element): void;
@@ -64,7 +76,7 @@ export abstract class ElementDirective extends DenierDirective {
 
 class EventDirective extends AttributeDirective {
   constructor(private event: string, private handler: () => void) {
-    super("event");
+    super();
   }
 
   override process(e: Element): void {
@@ -78,7 +90,7 @@ export function on(event: string, handler: () => void): EventDirective {
 
 class RefDirective<T extends Element> extends AttributeDirective {
   constructor(private cb: (e: T) => void) {
-    super("ref");
+    super();
   }
 
   override process(e: Element) {

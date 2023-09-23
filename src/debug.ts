@@ -16,7 +16,7 @@ let reported: Error | null = null;
 export function debugTrace(template: string, node: Node) {
   if (!DEBUG) return;
 
-  const cut = 120;
+  const cut = 1024;
   let line = template.replace(/\s+/g, " ").substring(0, cut);
   if (template.length > cut) {
     line += "...";
@@ -31,6 +31,19 @@ export function popDebugTrace() {
   traces.pop();
 }
 
+function prettyLine(line: string): string {
+  return line.replace(
+    /(<div )?denier-([^=]+)="([^"]+)"(><\/div>)?/g,
+    (_, prefix, id, kind, suffix) => {
+      const [aore, op] = kind.split(":");
+      if (aore == "a") {
+        return (prefix ?? "") + op + (suffix ?? "");
+      }
+      return `[${op}]`;
+    }
+  );
+}
+
 export function debugTraceException(err: any) {
   if (!DEBUG) return;
   if (reported === err) return;
@@ -38,16 +51,9 @@ export function debugTraceException(err: any) {
 
   const current = traces.pop()!;
   traces.push({ ...current, template: "->" + current.template });
-
-  console.debug(`Error while rendering template:`, traces[1].node);
-  console.dirxml(traces[1].node);
+  console.debug(`Error while rendering template:`, current.node);
   console.debug(
-    traces
-      .map((trace) => `${trace.node.nodeName} - ${trace.template}`)
-      .join("\n")
+    "%c" + traces.map((trace) => `${prettyLine(trace.template)}`).join("\n"),
+    "background: black; color: wheat; white-space: pre;"
   );
-  // console.debug(
-  //   `%c${traces.join("\n")}`,
-  //   "background: black; color: wheat; white-space: pre;"
-  // );
 }

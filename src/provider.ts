@@ -25,10 +25,15 @@ class Provider extends AttributeDirective {
   private _values: Object[];
 
   constructor(values: Array<Object | (() => Object)>) {
-    super("provider");
+    super();
     this._values = values.map((value) =>
       typeof value === "function" ? value() : value
     );
+  }
+
+  override debugInfo(): string {
+    const valueTypes = this._values.map((v) => v.constructor.name);
+    return super.debugInfo() + `(${valueTypes.join(",")})`;
   }
 
   override process(e: Element): void {
@@ -62,7 +67,7 @@ export function findContext<T extends Object>(
 
 class Consumer<T extends Object> extends ElementDirective {
   constructor(private cls: Constructor<T>, private cb: (t: T) => any) {
-    super("consumer");
+    super();
   }
 
   override process(e: Element) {
@@ -74,6 +79,10 @@ class Consumer<T extends Object> extends ElementDirective {
     } else {
       throw new Error(`No provider of ${this.cls.name} in context`);
     }
+  }
+
+  override debugInfo(): string {
+    return super.debugInfo() + `(${this.cls.name})`;
   }
 }
 

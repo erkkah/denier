@@ -9,7 +9,7 @@ class Builder<T, S extends DenierState<T>> extends ElementDirective {
     private builder: (state: S) => DenierComponent | DenierTemplate,
     private filter?: (item: T) => boolean
   ) {
-    super("builder");
+    super();
   }
 
   override process(e: Element) {
@@ -28,6 +28,10 @@ class Builder<T, S extends DenierState<T>> extends ElementDirective {
     } else {
       throw new Error(`No provider of ${this.cls.name} in context`);
     }
+  }
+
+  override debugInfo(): string {
+      return super.debugInfo() + `(${this.cls.name})`;
   }
 }
 
