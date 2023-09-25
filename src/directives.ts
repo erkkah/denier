@@ -4,8 +4,25 @@ import { randomID } from "./id";
 export type Constructor<T extends Object> = { new (...args: any): T };
 
 export abstract class DenierDirective {
+  private _dirty = true;
+
+  get dirty(): boolean {
+    return this._dirty;
+  }
+
+  protected markDirty() {
+    this._dirty = true;
+  }
+
+  protected markClean() {
+    this._dirty = false;
+  }
+
   abstract value(): any;
-  render(parent: Node) {}
+
+  render(parent: Node) {
+    this._dirty = false;
+  }
 }
 
 abstract class IDDirective extends DenierDirective {

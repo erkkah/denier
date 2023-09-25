@@ -9,6 +9,7 @@ import { DenierDirective } from "./directives";
 class Constant extends DenierDirective {
   constructor(private c: any) {
     super();
+    this.markClean();
   }
 
   override value(): any {
@@ -18,6 +19,7 @@ class Constant extends DenierDirective {
 
 class Dynamic extends DenierDirective {
   private wrappedDirective?: DenierDirective;
+  private lastValue: any;
 
   constructor(private f: () => any) {
     super();
@@ -25,6 +27,13 @@ class Dynamic extends DenierDirective {
 
   override value(): any {
     let v = this.f();
+
+    if (v === this.lastValue) {
+      return v;
+    }
+
+    this.lastValue = v;
+    this.markDirty();
 
     if (v instanceof DenierTemplate) {
       v = new Template(v);
@@ -41,6 +50,7 @@ class Dynamic extends DenierDirective {
 
   override render(e: Element) {
     this.wrappedDirective?.render(e);
+    this.markClean();
   }
 }
 
@@ -94,26 +104,35 @@ export class DenierTemplate {
    * @returns this template, to allow for chaining
    */
   render(host: Node): this {
-    let e: Element = document.createElement("div");
-
     if (this.strings.length === 0) {
       return this;
     }
 
     let v = this.strings[0];
 
+    let dirty = false;
+
     for (let i = 1; i < this.strings.length; i++) {
-      v += String(this.directives[i - 1].value());
+      const directive = this.directives[i - 1];
+      v += String(directive.value());
+      dirty ||= directive.dirty;
       v += this.strings[i];
+    }
+
+    if (this.rendered && !dirty) {
+      return this;
     }
 
     v = v.trim();
 
     try {
+      let e: Element = document.createElement("div");
       e.insertAdjacentHTML("afterbegin", v);
 
       let rendered: Node = e;
-      if (rendered.childNodes.length == 1) {
+      if (rendered.childNodes.length == 0) {
+        rendered = document.createTextNode("");
+      } else if (rendered.childNodes.length == 1) {
         rendered = rendered.firstChild!;
       }
 
