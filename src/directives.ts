@@ -18,15 +18,28 @@ export abstract class DenierDirective {
     this._dirty = false;
   }
 
-  abstract value(): any;
+  abstract code(): string;
 
-  render(parent: Node) {
+  value(): any {
+    return this.code();
+  }
+
+  render(host: ChildNode): ChildNode {
+    this._dirty = false;
+    return host;
+  }
+
+  update() {
     this._dirty = false;
   }
 }
 
-abstract class IDDirective extends DenierDirective {
-  private ID = randomID();
+export abstract class DynamicDirective extends DenierDirective {
+  readonly ID = randomID();
+
+  override code() {
+    return `<denier id=${this.ID} />`;
+  }
 
   get attrName(): string {
     return `denier-${this.ID}`;
@@ -43,21 +56,14 @@ abstract class IDDirective extends DenierDirective {
   abstract debugInfo(): string;
 }
 
-export abstract class AttributeDirective extends IDDirective {
-  override value() {
+export abstract class AttributeDirective extends DynamicDirective {
+  override code() {
     return this.attr;
   }
 
-  override render(parent: Element) {
-    const e = parent.querySelector(`*[${this.attr}]`);
-    if (!e) {
-      throw new Error(
-        `Directive ${this.constructor.name} must be in attribute position`
-      );
-    }
-
-    e.removeAttribute(this.attrName);
-    this.process(e);
+  override render(host: ChildNode): ChildNode {
+    this.process(host as Element);
+    return host;
   }
 
   override debugInfo(): string {
@@ -67,28 +73,16 @@ export abstract class AttributeDirective extends IDDirective {
   abstract process(e: Element): void;
 }
 
-export abstract class ElementDirective extends IDDirective {
-  override value(): string {
-    return `<div ${this.attr}></div>`;
-  }
-
-  override render(parent: Element) {
-    const e = parent.querySelector(`*[${this.attr}]`);
-    if (!e) {
-      throw new Error(
-        `Directive ${this.constructor.name} must be in element position`
-      );
-    }
-
-    e.removeAttribute(this.attrName);
-    this.process(e);
+export abstract class ElementDirective extends DynamicDirective {
+  override render(host: ChildNode): ChildNode {
+    return this.process(host as Element);
   }
 
   override debugInfo(): string {
     return `e:${this.constructor.name}`;
   }
 
-  abstract process(e: Element): void;
+  abstract process(e: Element): ChildNode;
 }
 
 class EventDirective extends AttributeDirective {

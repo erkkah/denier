@@ -12,7 +12,7 @@ class Builder<T, S extends DenierState<T>> extends ElementDirective {
     super();
   }
 
-  override process(e: Element) {
+  override process(e: Element): ChildNode {
     // Find parent element with context
     const state = findContextObject(e, this.cls);
     if (state) {
@@ -28,6 +28,8 @@ class Builder<T, S extends DenierState<T>> extends ElementDirective {
     } else {
       throw new Error(`No provider of ${this.cls.name} in context`);
     }
+    // ???
+    return e;
   }
 
   override debugInfo(): string {

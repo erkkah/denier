@@ -11,13 +11,14 @@ export abstract class DenierComponent extends ElementDirective {
     return this._template;
   }
 
-  override process(host: Element) {
+  override process(host: Element): ChildNode {
     const t = this.template;
     if (t.isRendered) {
       t.mount(host);
     } else {
       t.render(host);
     }
+    return t.renderedNode;
   }
 
   /**

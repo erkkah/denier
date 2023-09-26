@@ -73,8 +73,41 @@ describe("Basics", () => {
     t.update();
     const updated = document.getElementById("4711");
     expect(updated).toBeTruthy();
-    expect(node).not.toBe(updated);
     expect(updated?.textContent).toBe(content);
+  });
+
+});
+
+
+describe("Attribute values", () => {
+  let host: Element;
+
+  beforeEach(() => {
+    document.body.innerHTML = hostDocument;
+    host = document.getElementById("test-app")!;
+  });
+
+  it("renders static attribute values", () => {
+    const value = 4711;
+    const t = html`<div id="${value}">Content</div>`.render(host);
+    const node = document.getElementById("4711");
+    expect(node).toBeTruthy();
+    t.update();
+    const updated = document.getElementById("4711");
+    expect(updated).toBeTruthy();
+    expect(node).toBe(updated);
+  });
+
+  it("renders dynamic attribute values", () => {
+    let value = 4711;
+    const t = html`<div id="${() => value}">Content</div>`.render(host);
+    const node = document.getElementById("4711");
+    expect(node).toBeTruthy();
+    value++;
+    t.update();
+    const updated = document.getElementById("4712");
+    expect(updated).toBeTruthy();
+    expect(updated).toBe(node);
   });
 
 });

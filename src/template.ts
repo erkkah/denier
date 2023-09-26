@@ -4,7 +4,7 @@ import {
   popDebugTrace,
   debugTrace as pushDebugTrace,
 } from "./debug";
-import { DenierDirective } from "./directives";
+import { DenierDirective, DynamicDirective } from "./directives";
 
 class Constant extends DenierDirective {
   constructor(private c: any) {
@@ -12,45 +12,76 @@ class Constant extends DenierDirective {
     this.markClean();
   }
 
-  override value(): any {
+  override code(): any {
     return this.c;
   }
 }
 
-class Dynamic extends DenierDirective {
-  private wrappedDirective?: DenierDirective;
-  private lastValue: any;
+class Dynamic extends DynamicDirective {
+  private renderedValue: any;
+  private rendered?: ChildNode;
 
   constructor(private f: () => any) {
     super();
   }
 
-  override value(): any {
-    let v = this.f();
-
-    if (v === this.lastValue) {
-      return v;
+  override value() {
+    const v = this.f();
+    if (v !== this.renderedValue) {
+      this.markDirty();
     }
+    return v;
+  }
 
-    this.lastValue = v;
-    this.markDirty();
+  override render(e: ChildNode): ChildNode {
+    let v = this.value();
+
+    this.renderedValue = v;
 
     if (v instanceof DenierTemplate) {
       v = new Template(v);
     }
 
     if (v instanceof DenierDirective) {
-      this.wrappedDirective = v;
-      return v.value();
+      this.rendered = v.render(e);
+    } else {
+      const text = document.createTextNode(v);
+      e.replaceWith(text);
+      this.rendered = text;
     }
 
-    this.wrappedDirective = undefined;
-    return v;
+    this.markClean();
+    return this.rendered;
   }
 
-  override render(e: Element) {
-    this.wrappedDirective?.render(e);
-    this.markClean();
+  override update(): void {
+    this.render(this.rendered!);
+  }
+
+  override debugInfo(): string {
+    return "";
+  }
+}
+
+class AttributeSetter extends DynamicDirective {
+  private host?: ChildNode;
+
+  constructor(private name: string, private valueDirective: DenierDirective) {
+    super();
+  }
+
+  override debugInfo(): string {
+    return "";
+  }
+
+  override render(host: ChildNode): ChildNode {
+    this.host = host;
+    (host as Element).setAttribute(this.name, this.valueDirective.value());
+    return host;
+  }
+
+  override update(): void {
+      this.render(this.host!);
   }
 }
 
@@ -66,7 +97,8 @@ class Template extends DenierComponent {
 
 export class DenierTemplate {
   private directives: DenierDirective[] = [];
-  private rendered: Node | null = null;
+  private directiveMap = new Map<string, DenierDirective>();
+  private rendered: ChildNode | null = null;
 
   private cleanupTimer?: number;
   private cleanupTarget?: any;
@@ -103,7 +135,7 @@ export class DenierTemplate {
    * @param host a directly connected Element
    * @returns this template, to allow for chaining
    */
-  render(host: Node): this {
+  render(host: ChildNode): this {
     if (this.strings.length === 0) {
       return this;
     }
@@ -114,14 +146,17 @@ export class DenierTemplate {
 
     for (let i = 1; i < this.strings.length; i++) {
       const directive = this.directives[i - 1];
-      v += String(directive.value());
+      if (directive instanceof DynamicDirective) {
+        this.directiveMap.set(directive.ID, directive);
+      }
+      v += String(directive.code());
       dirty ||= directive.dirty;
       v += this.strings[i];
     }
 
-    if (this.rendered && !dirty) {
-      return this;
-    }
+    // if (this.rendered && !dirty) {
+    //   return this;
+    // }
 
     v = v.trim();
 
@@ -129,7 +164,7 @@ export class DenierTemplate {
       let e: Element = document.createElement("div");
       e.insertAdjacentHTML("afterbegin", v);
 
-      let rendered: Node = e;
+      let rendered: ChildNode = e;
       if (rendered.childNodes.length == 0) {
         rendered = document.createTextNode("");
       } else if (rendered.childNodes.length == 1) {
@@ -139,14 +174,52 @@ export class DenierTemplate {
       this.rendered = rendered;
       this.mount(host);
 
-      pushDebugTrace(v, rendered);
-
-      const parent = rendered.parentNode!;
-
-      for (const child of this.directives) {
-        child.render(parent);
+      if (rendered.nodeType !== Node.ELEMENT_NODE) {
+        return this;
       }
 
+      pushDebugTrace(v, rendered);
+
+      const newElements: Element[] = [];
+      const renderedElement = rendered as Element;
+      newElements.push(renderedElement);
+      if (renderedElement.hasChildNodes()) {
+        newElements.push(...renderedElement.querySelectorAll("*"));
+      }
+
+      for (const child of newElements) {
+        if (child.tagName === "DENIER") {
+          const d = this.directiveMap.get(child.id);
+          if (!d) {
+            throw new Error("Invalid directive reference");
+          }
+          d.render(child);
+        }
+
+        for (const attr of child.attributes) {
+          const nameMatch = attr.name.match(/^denier-(\S+)$/);
+          if (nameMatch) {
+            const id = nameMatch[1];
+            const d = this.directiveMap.get(id);
+            if (!d) {
+              throw new Error("Invalid directive reference");
+            }
+            d.render(child);
+          }
+
+          const valueMatch = attr.value.match(/<denier\s+id=(\S+)\s*\/>/m);
+          if (valueMatch) {
+            const id = valueMatch[1];
+            const d = this.directiveMap.get(id);
+            if (!d) {
+              throw new Error("Invalid directive reference");
+            }
+            const setter = new AttributeSetter(attr.name, d);
+            this.directiveMap.set(id, setter);
+            setter.render(child);
+          }
+        }
+      }
       return this;
     } catch (err) {
       debugTraceException(err);
@@ -158,6 +231,13 @@ export class DenierTemplate {
 
   get isRendered(): boolean {
     return !!this.rendered;
+  }
+
+  get renderedNode(): ChildNode {
+    if (!this.rendered) {
+      throw new Error("Node is not rendered");
+    }
+    return this.rendered;
   }
 
   /**
@@ -198,11 +278,11 @@ export class DenierTemplate {
    *
    * It is an error to mount an unrendered template.
    */
-  mount(host: Node) {
+  mount(host: ChildNode) {
     if (!this.rendered) {
       throw new Error("Cannot mount unrendered template");
     }
-    host.parentElement?.replaceChild(this.rendered, host);
+    host.replaceWith(this.rendered);
   }
 
   /**
@@ -218,7 +298,9 @@ export class DenierTemplate {
       // Should spurious late updates be ok?
       throw new Error("Cannot update unrendered template");
     }
-    this.render(this.rendered);
+    for (const directive of this.directiveMap.values()) {
+      directive.update();
+    }
   }
 }
 
