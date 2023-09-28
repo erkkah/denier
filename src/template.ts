@@ -81,7 +81,7 @@ class AttributeSetter extends DynamicDirective {
   }
 
   override update(): void {
-      this.render(this.host!);
+    this.render(this.host!);
   }
 }
 
@@ -96,30 +96,48 @@ class Template extends DenierComponent {
 }
 
 export class DenierTemplate {
-  private directives: DenierDirective[] = [];
-  private directiveMap = new Map<string, DenierDirective>();
+  private code = "";
+  private dynamics = new Map<string, DynamicDirective>();
   private rendered: ChildNode | null = null;
 
   private cleanupTimer?: number;
   private cleanupTarget?: any;
   private cleanupHandler?: (o: any) => void;
 
-  constructor(private strings: TemplateStringsArray, substitutions: any[]) {
+  constructor(strings: TemplateStringsArray, substitutions: any[]) {
+    const directives: DenierDirective[] = [];
+
     for (const i in substitutions) {
       const sub = substitutions[i];
 
       if (!(sub instanceof DenierDirective)) {
         if (typeof sub === "function") {
-          this.directives.push(new Dynamic(sub));
+          directives.push(new Dynamic(sub));
         } else if (sub instanceof DenierTemplate) {
           const template = new Template(sub);
-          this.directives.push(template);
+          directives.push(template);
         } else {
-          this.directives.push(new Constant(sub));
+          //directives.push(new Constant(sub));
+          directives.push(new Dynamic(() => sub));
         }
       } else {
-        this.directives.push(sub);
+        directives.push(sub);
       }
+    }
+
+    if (strings.length > 0) {
+      let v = strings[0];
+
+      for (let i = 1; i < strings.length; i++) {
+        const directive = directives[i - 1];
+        if (directive instanceof DynamicDirective) {
+          this.dynamics.set(directive.ID, directive);
+        }
+        v += directive.code();
+        v += strings[i];
+      }
+
+      this.code = v.trim();
     }
   }
 
@@ -136,33 +154,9 @@ export class DenierTemplate {
    * @returns this template, to allow for chaining
    */
   render(host: ChildNode): this {
-    if (this.strings.length === 0) {
-      return this;
-    }
-
-    let v = this.strings[0];
-
-    let dirty = false;
-
-    for (let i = 1; i < this.strings.length; i++) {
-      const directive = this.directives[i - 1];
-      if (directive instanceof DynamicDirective) {
-        this.directiveMap.set(directive.ID, directive);
-      }
-      v += String(directive.code());
-      dirty ||= directive.dirty;
-      v += this.strings[i];
-    }
-
-    // if (this.rendered && !dirty) {
-    //   return this;
-    // }
-
-    v = v.trim();
-
     try {
       let e: Element = document.createElement("div");
-      e.insertAdjacentHTML("afterbegin", v);
+      e.insertAdjacentHTML("afterbegin", this.code);
 
       let rendered: ChildNode = e;
       if (rendered.childNodes.length == 0) {
@@ -178,7 +172,7 @@ export class DenierTemplate {
         return this;
       }
 
-      pushDebugTrace(v, rendered);
+      pushDebugTrace(this.code, rendered);
 
       const newElements: Element[] = [];
       const renderedElement = rendered as Element;
@@ -187,38 +181,42 @@ export class DenierTemplate {
         newElements.push(...renderedElement.querySelectorAll("*"));
       }
 
+      const directivesDone = new Set<string>();
+      const getDirective = (id: string) => {
+        const d = this.dynamics.get(id);
+        if (!d) {
+          throw new Error("Invalid directive reference");
+        }
+        return d;
+      };
+
       for (const child of newElements) {
         if (child.tagName === "DENIER") {
-          const d = this.directiveMap.get(child.id);
-          if (!d) {
-            throw new Error("Invalid directive reference");
-          }
-          d.render(child);
+          getDirective(child.id).render(child);
+          directivesDone.add(child.id);
         }
 
         for (const attr of child.attributes) {
           const nameMatch = attr.name.match(/^denier-(\S+)$/);
           if (nameMatch) {
             const id = nameMatch[1];
-            const d = this.directiveMap.get(id);
-            if (!d) {
-              throw new Error("Invalid directive reference");
-            }
-            d.render(child);
+            getDirective(id).render(child);
+            directivesDone.add(id);
           }
 
           const valueMatch = attr.value.match(/<denier\s+id=(\S+)\s*\/>/m);
           if (valueMatch) {
             const id = valueMatch[1];
-            const d = this.directiveMap.get(id);
-            if (!d) {
-              throw new Error("Invalid directive reference");
-            }
-            const setter = new AttributeSetter(attr.name, d);
-            this.directiveMap.set(id, setter);
+            const setter = new AttributeSetter(attr.name, getDirective(id));
+            this.dynamics.set(id, setter);
             setter.render(child);
+            directivesDone.add(id);
           }
         }
+      }
+      if (directivesDone.size != this.dynamics.size) {
+        // ??? Improve message
+        throw new Error("Template error");
       }
       return this;
     } catch (err) {
@@ -298,7 +296,7 @@ export class DenierTemplate {
       // Should spurious late updates be ok?
       throw new Error("Cannot update unrendered template");
     }
-    for (const directive of this.directiveMap.values()) {
+    for (const directive of this.dynamics.values()) {
       directive.update();
     }
   }
