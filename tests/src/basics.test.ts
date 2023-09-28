@@ -133,8 +133,8 @@ describe("Attribute values", () => {
 
     it("fails to render replacements in tags", () => {
       const tag = "div";
-      expect(
-        () => html`<${tag} id="4711">Content</${tag}>`.render(host)
+      expect(() =>
+        html`<${tag} id="4711">Content</${tag}>`.render(host)
       ).toThrowError("Template error");
     });
 

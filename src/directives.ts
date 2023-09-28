@@ -4,42 +4,19 @@ import { randomID } from "./id";
 export type Constructor<T extends Object> = { new (...args: any): T };
 
 export abstract class DenierDirective {
-  private _dirty = true;
-
-  get dirty(): boolean {
-    return this._dirty;
-  }
-
-  protected markDirty() {
-    this._dirty = true;
-  }
-
-  protected markClean() {
-    this._dirty = false;
-  }
-
-  abstract code(): string;
+  readonly ID = randomID();
 
   value(): any {
     return this.code();
   }
 
-  render(host: ChildNode): ChildNode {
-    this._dirty = false;
-    return host;
+  code(): string {
+    return `<denier id=${this.ID} ></denier>`;
   }
 
-  update() {
-    this._dirty = false;
-  }
-}
+  abstract render(host: ChildNode): ChildNode;
 
-export abstract class DynamicDirective extends DenierDirective {
-  readonly ID = randomID();
-
-  override code() {
-    return `<denier id=${this.ID} />`;
-  }
+  update(): void {}
 
   get attrName(): string {
     return `denier-${this.ID}`;
@@ -56,7 +33,7 @@ export abstract class DynamicDirective extends DenierDirective {
   abstract debugInfo(): string;
 }
 
-export abstract class AttributeDirective extends DynamicDirective {
+export abstract class AttributeDirective extends DenierDirective {
   override code() {
     return this.attr;
   }
@@ -73,7 +50,7 @@ export abstract class AttributeDirective extends DynamicDirective {
   abstract process(e: Element): void;
 }
 
-export abstract class ElementDirective extends DynamicDirective {
+export abstract class ElementDirective extends DenierDirective {
   override render(host: ChildNode): ChildNode {
     return this.process(host as Element);
   }
@@ -112,3 +89,6 @@ class RefDirective<T extends Element> extends AttributeDirective {
 export function ref<T extends Element>(cb: (e: T) => void): RefDirective<T> {
   return new RefDirective(cb);
 }
+
+// <div ${props({a: b, c: d})}>
+// <div ${props<HTMLDivElement>({a: b, c: d})}>
