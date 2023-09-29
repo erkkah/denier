@@ -22,7 +22,7 @@ class Constant extends DenierDirective {
   }
 
   override debugInfo(): string {
-      return "";
+    return `${this.constructor.name}`;
   }
 }
 
@@ -63,7 +63,7 @@ class Dynamic extends DenierDirective {
   }
 
   override debugInfo(): string {
-    return "";
+    return `e:${this.constructor.name}`;
   }
 }
 
@@ -109,25 +109,21 @@ export class DenierTemplate {
   private cleanupHandler?: (o: any) => void;
 
   constructor(strings: TemplateStringsArray, substitutions: any[]) {
-    const directives: DenierDirective[] = [];
-
-    // ??? Rewrite to map
-    for (const i in substitutions) {
-      const sub = substitutions[i];
-
-      if (!(sub instanceof DenierDirective)) {
-        if (typeof sub === "function") {
-          directives.push(new Dynamic(sub));
-        } else if (sub instanceof DenierTemplate) {
-          const template = new Template(sub);
-          directives.push(template);
-        } else {
-          directives.push(new Constant(sub));
-        }
-      } else {
-        directives.push(sub);
+    const directives: DenierDirective[] = substitutions.map((sub) => {
+      if (sub instanceof DenierDirective) {
+        return sub;
       }
-    }
+
+      if (typeof sub === "function") {
+        return new Dynamic(sub);
+      }
+
+      if (sub instanceof DenierTemplate) {
+        return new Template(sub);
+      }
+
+      return new Constant(sub);
+    });
 
     if (strings.length > 0) {
       let v = strings[0];
@@ -197,23 +193,17 @@ export class DenierTemplate {
           continue;
         }
 
-        if (child.tagName === "DENIER") {
-          getDirective(child.id).render(child) as Element;
-          directivesDone.add(child.id);
-          continue;
-        }
-
         for (const attr of child.attributes) {
-          const nameMatch = attr.name.match(/^denier-(\S+)$/);
-          if (nameMatch) {
-            const id = nameMatch[1];
+          const elementMatch = attr.name.match(/^denier-(\S+)$/) || attr.value.match(/^denier-(\S+)$/);
+          if (elementMatch) {
+            const id = elementMatch[1];
             getDirective(id).render(child) as Element;
             directivesDone.add(id);
             child.removeAttribute(attr.name);
             continue;
           }
 
-          const valueMatch = attr.value.match(/<denier\s+id=(\S+)\s*>/m);
+          const valueMatch = attr.value.match(/<div id=denier-(\S+)\s*>/m);
           if (valueMatch) {
             const id = valueMatch[1];
             const setter = new AttributeSetter(attr.name, getDirective(id));

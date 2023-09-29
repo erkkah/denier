@@ -54,6 +54,6 @@ export function debugTraceException(err: any) {
   console.debug(`Error while rendering template:`, current.node);
   console.debug(
     "%c" + traces.map((trace) => `${prettyLine(trace.template)}`).join("\n"),
-    "background: black; color: wheat; white-space: pre;"
+    "display: block; background: black; color: wheat; white-space: pre; width:100%;"
   );
 }

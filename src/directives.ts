@@ -11,7 +11,7 @@ export abstract class DenierDirective {
   }
 
   code(): string {
-    return `<denier id=${this.ID} ></denier>`;
+    return `<div id=${this.attrName} ></div>`;
   }
 
   abstract render(host: ChildNode): ChildNode;
