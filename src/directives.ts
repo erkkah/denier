@@ -11,26 +11,16 @@ export abstract class DenierDirective {
   }
 
   code(): string {
-    return `<div id=${this.attrName} ></div>`;
+    return `<div id=${this.attr} ></div>`;
   }
 
   abstract render(host: ChildNode): ChildNode;
 
   update(): void {}
 
-  get attrName(): string {
+  get attr(): string {
     return `denier-${this.ID}`;
   }
-
-  get attr(): string {
-    if (DEBUG) {
-      return `denier-${this.ID}="${this.debugInfo()}"`;
-    } else {
-      return this.attrName;
-    }
-  }
-
-  abstract debugInfo(): string;
 }
 
 export abstract class AttributeDirective extends DenierDirective {
@@ -43,20 +33,12 @@ export abstract class AttributeDirective extends DenierDirective {
     return host;
   }
 
-  override debugInfo(): string {
-    return `a:${this.constructor.name}`;
-  }
-
   abstract process(e: Element): void;
 }
 
 export abstract class ElementDirective extends DenierDirective {
   override render(host: ChildNode): ChildNode {
     return this.process(host as Element);
-  }
-
-  override debugInfo(): string {
-    return `e:${this.constructor.name}`;
   }
 
   abstract process(e: Element): ChildNode;

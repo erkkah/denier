@@ -31,11 +31,6 @@ class Provider extends AttributeDirective {
     );
   }
 
-  override debugInfo(): string {
-    const valueTypes = this._values.map((v) => v.constructor.name);
-    return super.debugInfo() + `(${valueTypes.join(",")})`;
-  }
-
   override process(e: Element): void {
     const context = getContext(e);
     for (const value of this._values) {
@@ -81,10 +76,6 @@ class Consumer<T extends Object> extends ElementDirective {
     }
     // ???
     return e;
-  }
-
-  override debugInfo(): string {
-    return super.debugInfo() + `(${this.cls.name})`;
   }
 }
 

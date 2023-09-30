@@ -1,8 +1,10 @@
 import { DenierComponent } from "./component";
 import {
+  DEBUG,
+  debugTraceBegin,
+  debugTraceEnd,
   debugTraceException,
-  popDebugTrace,
-  debugTrace as pushDebugTrace,
+  debugTraceUpdateNode,
 } from "./debug";
 import { DenierDirective } from "./directives";
 
@@ -19,10 +21,6 @@ class Constant extends DenierDirective {
     const text = document.createTextNode(this.c);
     e.replaceWith(text);
     return text;
-  }
-
-  override debugInfo(): string {
-    return `${this.constructor.name}`;
   }
 }
 
@@ -61,10 +59,6 @@ class Dynamic extends DenierDirective {
   override update(): void {
     this.render(this.rendered!);
   }
-
-  override debugInfo(): string {
-    return `e:${this.constructor.name}`;
-  }
 }
 
 class AttributeSetter extends DenierDirective {
@@ -72,10 +66,6 @@ class AttributeSetter extends DenierDirective {
 
   constructor(private name: string, private valueDirective: DenierDirective) {
     super();
-  }
-
-  override debugInfo(): string {
-    return "";
   }
 
   override render(host: ChildNode): ChildNode {
@@ -170,7 +160,9 @@ export class DenierTemplate {
         return this;
       }
 
-      pushDebugTrace(this.code, rendered);
+      //debugTraceBegin("template", this.rendered);
+
+      // ??? Change to treewalker
 
       const newElements: ChildNode[] = [];
       const renderedElement = rendered as Element;
@@ -189,17 +181,30 @@ export class DenierTemplate {
       };
 
       for (let child of newElements) {
+        debugTraceBegin("node", child);
+
         if (!(child instanceof Element)) {
           continue;
         }
 
         for (const attr of child.attributes) {
-          const elementMatch = attr.name.match(/^denier-(\S+)$/) || attr.value.match(/^denier-(\S+)$/);
+          const elementMatch =
+            attr.name.match(/^denier-(\S+)$/) ||
+            attr.value.match(/^denier-(\S+)$/);
           if (elementMatch) {
             const id = elementMatch[1];
-            getDirective(id).render(child) as Element;
+            const d = getDirective(id);
+            debugTraceBegin("directive", d.constructor.name);
+            const node = d.render(child);
+            if (this.rendered === child) {
+              this.rendered = node;
+            }
+            debugTraceUpdateNode(child, node as Element);
+            debugTraceEnd("directive");
             directivesDone.add(id);
-            child.removeAttribute(attr.name);
+            if (!DEBUG) {
+              child.removeAttribute(attr.name);
+            }
             continue;
           }
 
@@ -208,21 +213,25 @@ export class DenierTemplate {
             const id = valueMatch[1];
             const setter = new AttributeSetter(attr.name, getDirective(id));
             this.directives.set(id, setter);
+            debugTraceBegin("directive", "AttributeSetter");
             setter.render(child);
+            debugTraceEnd("directive");
             directivesDone.add(id);
           }
         }
+
+        debugTraceEnd("node");
       }
       if (directivesDone.size != this.directives.size) {
         // ??? Improve message
         throw new Error("Template error");
       }
+
+      //debugTraceEnd("template");
       return this;
     } catch (err) {
       debugTraceException(err);
       throw err;
-    } finally {
-      popDebugTrace();
     }
   }
 

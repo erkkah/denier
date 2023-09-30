@@ -31,10 +31,6 @@ class Builder<T, S extends DenierState<T>> extends ElementDirective {
     // ???
     return e;
   }
-
-  override debugInfo(): string {
-      return super.debugInfo() + `(${this.cls.name})`;
-  }
 }
 
 export abstract class DenierState<T> extends EventTarget {
