@@ -222,9 +222,12 @@ export class DenierTemplate {
 
         debugTraceEnd("node");
       }
+
       if (directivesDone.size != this.directives.size) {
-        // ??? Improve message
-        throw new Error("Template error");
+        const nonrendered = [...this.directives.entries()]
+          .filter(([id, directive]) => !directivesDone.has(id))
+          .map((d) => `${d[1].constructor.name}(${d[0]})`);
+        throw new Error(`Template error, directives left unrendered: ${nonrendered.join(", ")}`);
       }
 
       //debugTraceEnd("template");
@@ -300,8 +303,6 @@ export class DenierTemplate {
    */
   update() {
     if (!this.rendered) {
-      // ??? Change to debug print instead?
-      // Should spurious late updates be ok?
       throw new Error("Cannot update unrendered template");
     }
     for (const directive of this.directives.values()) {
