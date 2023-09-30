@@ -2,7 +2,7 @@
   "name": "denier",
   "description": "Denier is a tiny library for building web frontend stuff",
   "author": {
-    "name": "Erik Agsjö"    
+    "name": "Erik Agsjö"
   },
   "license": "MIT",
   "version": "0.1.0",
@@ -14,7 +14,9 @@
     "lib"
   ],
   "scripts": {
-    "build": "parcel build",
+    "start": "parcel serve --no-cache example/index.html",
+    "build": "parcel build --no-cache",
+    "test": "cd tests && npm run test",
     "prepack": "npm run build"
   },
   "devDependencies": {
