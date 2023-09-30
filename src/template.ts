@@ -25,7 +25,6 @@ class Constant extends DenierDirective {
 }
 
 class Dynamic extends DenierDirective {
-  private renderedValue: any;
   private rendered?: ChildNode;
 
   constructor(private f: () => any) {
@@ -38,8 +37,6 @@ class Dynamic extends DenierDirective {
 
   override render(e: ChildNode): ChildNode {
     let v = this.value();
-
-    this.renderedValue = v;
 
     if (v instanceof DenierTemplate) {
       v = new Template(v);
@@ -162,8 +159,6 @@ export class DenierTemplate {
 
       //debugTraceBegin("template", this.rendered);
 
-      // ??? Change to treewalker
-
       const newElements: ChildNode[] = [];
       const renderedElement = rendered as Element;
       newElements.push(renderedElement);
@@ -225,7 +220,7 @@ export class DenierTemplate {
 
       if (directivesDone.size != this.directives.size) {
         const nonrendered = [...this.directives.entries()]
-          .filter(([id, directive]) => !directivesDone.has(id))
+          .filter(([id, _directive]) => !directivesDone.has(id))
           .map((d) => `${d[1].constructor.name}(${d[0]})`);
         throw new Error(`Template error, directives left unrendered: ${nonrendered.join(", ")}`);
       }

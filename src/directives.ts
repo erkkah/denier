@@ -1,4 +1,3 @@
-import { DEBUG } from "./debug";
 import { randomID } from "./id";
 
 export type Constructor<T extends Object> = { new (...args: any): T };

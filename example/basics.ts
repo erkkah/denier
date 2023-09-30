@@ -6,10 +6,16 @@ import { denierApp, html, on } from "../src";
 let value = 42;
 
 // A template showing our value.
-// Not the difference between using a static value and a function.
+// Note the difference between using a static value and a function.
 // The template is only parsed once, but functions and directives get evaluated
 // if the template is updated.
-const counter = html`<div>Initial: ${value}, Current: ${() => value}</div>`;
+const counter = html`<div>
+  Initial: ${value}, Current:
+  ${() => {
+    //throw new Error("Test error");
+    return value;
+  }}
+</div>`;
 
 // The value gets increased, and the template is updated.
 setInterval(() => {
@@ -19,7 +25,7 @@ setInterval(() => {
 
 // Main template with a reset button
 const app = html`
-  <span>${() => new Date().toLocaleString("sv")}</span>
+  <span>${new Date().toLocaleString("sv")}</span>
   ${counter}
   <button
     ${on("click", () => {
