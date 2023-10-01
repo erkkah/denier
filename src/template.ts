@@ -1,12 +1,13 @@
 import { DenierComponent } from "./component";
 import {
   DEBUG,
+  assert,
   debugTraceBegin,
   debugTraceEnd,
   debugTraceException,
   debugTraceUpdateNode,
 } from "./debug";
-import { DenierDirective } from "./directives";
+import { DenierDirective, Key } from "./directives";
 
 class Constant extends DenierDirective {
   constructor(private c: any) {
@@ -24,8 +25,94 @@ class Constant extends DenierDirective {
   }
 }
 
+class List extends DenierDirective {
+  private marker = document.createComment(this.ID) as ChildNode;
+  private keyed = new Map<Key, [DenierDirective, ChildNode]>();
+
+  constructor(private items: Iterable<any>) {
+    super();
+  }
+
+  setItems(items: Iterable<any>) {
+    this.items = items;
+  }
+
+  override render(host: ChildNode): ChildNode {
+    host.replaceWith(this.marker);
+
+    const o = new MutationObserver((mutations: MutationRecord[]) => {
+      for (const m of mutations) {
+        if (m.type === "childList") {
+          for (const c of m.removedNodes) {
+            if (c == this.marker) {
+              o.disconnect();
+              for (const [, node] of this.keyed.values()) {
+                node.remove();
+              }
+            }
+          }
+        }
+      }
+    });
+
+    o.observe(this.marker.parentNode!, {
+      childList: true,
+    });
+
+    const nodes: ChildNode[] = [];
+
+    // ??? Collect directive types
+    // ??? complain if not templates or not keyed ?
+    for (const item of this.items) {
+      const d = makeDirective(item);
+      const node = document.createComment("");
+      const rendered = d.render(node);
+      this.keyed.set(d.key, [d, rendered]);
+      nodes.push(rendered);
+    }
+
+    this.marker.after(...nodes);
+
+    return this.marker;
+  }
+
+  override update(): void {
+    let cursor: ChildNode | null = this.marker;
+    const removed = new Set(this.keyed.keys());
+
+    for (const item of this.items) {
+      const d = makeDirective(item);
+
+      const existing = this.keyed.get(d.key);
+      if (existing) {
+        const [directive, node] = existing;
+        cursor!.after(node);
+        cursor = node;
+        directive.update();
+        removed.delete(d.key);
+      } else {
+        const node = document.createComment("");
+        const rendered = d.render(node);
+        this.keyed.set(d.key, [d, rendered]);
+        cursor!.after(rendered);
+        cursor = rendered;
+      }
+    }
+
+    for (const key of removed) {
+      const old = this.keyed.get(key);
+      assert(old);
+      const [_, node] = old;
+      node.remove();
+      this.keyed.delete(key);
+    }
+  }
+}
+
 class Dynamic extends DenierDirective {
   private rendered?: ChildNode;
+  private directive?: DenierDirective;
+  private lastValue: any;
 
   constructor(private f: () => any) {
     super();
@@ -36,24 +123,32 @@ class Dynamic extends DenierDirective {
   }
 
   override render(e: ChildNode): ChildNode {
-    let v = this.value();
-
-    if (v instanceof DenierTemplate) {
-      v = new Template(v);
-    }
-
-    if (v instanceof DenierDirective) {
-      this.rendered = v.render(e);
-    } else {
-      const text = document.createTextNode(v);
-      e.replaceWith(text);
-      this.rendered = text;
-    }
-
+    const v = this.value();
+    this.lastValue = v;
+    const d = makeDirective(v);
+    this.directive = d;
+    this.rendered = d.render(e);
     return this.rendered;
   }
 
   override update(): void {
+    const v = this.value();
+
+    if (v === this.lastValue) {
+      this.directive?.update();
+      return;
+    }
+
+    if (
+      typeof v === "object" &&
+      Symbol.iterator in v &&
+      this.directive instanceof List
+    ) {
+      this.directive.setItems(v);
+      this.directive.update();
+      return;
+    }
+
     this.render(this.rendered!);
   }
 }
@@ -84,10 +179,35 @@ class Template extends DenierComponent {
   override build(): DenierTemplate {
     return this._t;
   }
+
+  override get key(): Key {
+    return this._t.listKey ?? this.ID;
+  }
+}
+
+function makeDirective(value: any): DenierDirective {
+  if (value instanceof DenierDirective) {
+    return value;
+  }
+
+  if (typeof value === "function") {
+    return new Dynamic(value);
+  }
+
+  if (value instanceof DenierTemplate) {
+    return new Template(value);
+  }
+
+  if (typeof value === "object" && Symbol.iterator in value) {
+    return new List(value);
+  }
+
+  return new Constant(value);
 }
 
 export class DenierTemplate {
   private code = "";
+  private keyValue?: string | number;
   private directives = new Map<string, DenierDirective>();
   private rendered: ChildNode | null = null;
 
@@ -96,21 +216,9 @@ export class DenierTemplate {
   private cleanupHandler?: (o: any) => void;
 
   constructor(strings: TemplateStringsArray, substitutions: any[]) {
-    const directives: DenierDirective[] = substitutions.map((sub) => {
-      if (sub instanceof DenierDirective) {
-        return sub;
-      }
-
-      if (typeof sub === "function") {
-        return new Dynamic(sub);
-      }
-
-      if (sub instanceof DenierTemplate) {
-        return new Template(sub);
-      }
-
-      return new Constant(sub);
-    });
+    const directives: DenierDirective[] = substitutions.map((sub) =>
+      makeDirective(sub)
+    );
 
     if (strings.length > 0) {
       let v = strings[0];
@@ -222,7 +330,11 @@ export class DenierTemplate {
         const nonrendered = [...this.directives.entries()]
           .filter(([id, _directive]) => !directivesDone.has(id))
           .map((d) => `${d[1].constructor.name}(${d[0]})`);
-        throw new Error(`Template error, directives left unrendered: ${nonrendered.join(", ")}`);
+        throw new Error(
+          `Template error, directives left unrendered: ${nonrendered.join(
+            ", "
+          )}`
+        );
       }
 
       //debugTraceEnd("template");
@@ -303,6 +415,15 @@ export class DenierTemplate {
     for (const directive of this.directives.values()) {
       directive.update();
     }
+  }
+
+  key(key: Key): this {
+    this.keyValue = key;
+    return this;
+  }
+
+  get listKey(): Key | undefined {
+    return this.keyValue;
   }
 }
 

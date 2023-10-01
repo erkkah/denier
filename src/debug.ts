@@ -108,3 +108,10 @@ export function debugTraceException(err: any) {
 
   traces = [];
 }
+
+export function assert(value: unknown, message?: string | Error): asserts value {
+  if (!DEBUG) return;
+  if (!value) {
+    throw new Error(`Failed assertion: ${message ? message : ""}`);
+  }
+}

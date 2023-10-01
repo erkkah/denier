@@ -2,6 +2,8 @@ import { randomID } from "./id";
 
 export type Constructor<T extends Object> = { new (...args: any): T };
 
+export type Key = string | number;
+
 export abstract class DenierDirective {
   readonly ID = randomID();
 
@@ -19,6 +21,10 @@ export abstract class DenierDirective {
 
   get attr(): string {
     return `denier-${this.ID}`;
+  }
+
+  get key(): Key {
+    return this.ID;
   }
 }
 
