@@ -5,9 +5,9 @@ import {
   debugTraceBegin,
   debugTraceEnd,
   debugTraceException,
-  debugTraceUpdateNode,
+  // debugTraceUpdateNode,
 } from "./debug";
-import { DenierDirective, Key } from "./directives";
+import { DenierDirective, Key, RenderResult } from "./directives";
 
 class Constant extends DenierDirective {
   constructor(private c: any) {
@@ -18,16 +18,16 @@ class Constant extends DenierDirective {
     return this.c;
   }
 
-  override render(e: ChildNode): ChildNode {
+  override render(e: ChildNode): RenderResult {
     const text = document.createTextNode(this.c);
     e.replaceWith(text);
-    return text;
+    return [text];
   }
 }
 
 class List extends DenierDirective {
   private marker = document.createComment(this.ID) as ChildNode;
-  private keyed = new Map<Key, [DenierDirective, ChildNode]>();
+  private keyed = new Map<Key, [DenierDirective, RenderResult]>();
 
   constructor(private items: Iterable<any>) {
     super();
@@ -37,7 +37,7 @@ class List extends DenierDirective {
     this.items = items;
   }
 
-  override render(host: ChildNode): ChildNode {
+  override render(host: ChildNode): RenderResult {
     host.replaceWith(this.marker);
 
     const o = new MutationObserver((mutations: MutationRecord[]) => {
@@ -46,8 +46,8 @@ class List extends DenierDirective {
           for (const c of m.removedNodes) {
             if (c == this.marker) {
               o.disconnect();
-              for (const [, node] of this.keyed.values()) {
-                node.remove();
+              for (const [, result] of this.keyed.values()) {
+                result.forEach((r) => r.remove());
               }
             }
           }
@@ -59,7 +59,7 @@ class List extends DenierDirective {
       childList: true,
     });
 
-    const nodes: ChildNode[] = [];
+    const nodes: Node[] = [];
 
     // ??? Collect directive types
     // ??? complain if not templates or not keyed ?
@@ -68,12 +68,22 @@ class List extends DenierDirective {
       const node = document.createComment("");
       const rendered = d.render(node);
       this.keyed.set(d.key, [d, rendered]);
-      nodes.push(rendered);
+      // ??? Can we really have more than one?
+      nodes.push(...rendered);
     }
 
     this.marker.after(...nodes);
 
-    return this.marker;
+    return [this.marker];
+  }
+
+  private cursorFromResult(result: RenderResult): ChildNode {
+    assert(result.length > 0);
+    return result[result.length - 1];
+  }
+
+  private removeResult(result: RenderResult): void {
+    result.forEach((r) => r.remove());
   }
 
   override update(): void {
@@ -85,17 +95,17 @@ class List extends DenierDirective {
 
       const existing = this.keyed.get(d.key);
       if (existing) {
-        const [directive, node] = existing;
-        cursor!.after(node);
-        cursor = node;
+        const [directive, result] = existing;
+        cursor!.after(...result);
+        cursor = this.cursorFromResult(result);
         directive.update();
         removed.delete(d.key);
       } else {
         const node = document.createComment("");
         const rendered = d.render(node);
         this.keyed.set(d.key, [d, rendered]);
-        cursor!.after(rendered);
-        cursor = rendered;
+        cursor!.after(...rendered);
+        cursor = this.cursorFromResult(rendered);
       }
     }
 
@@ -103,14 +113,14 @@ class List extends DenierDirective {
       const old = this.keyed.get(key);
       assert(old);
       const [_, node] = old;
-      node.remove();
+      this.removeResult(node);
       this.keyed.delete(key);
     }
   }
 }
 
 class Dynamic extends DenierDirective {
-  private rendered?: ChildNode;
+  private rendered?: RenderResult;
   private directive?: DenierDirective;
   private lastValue: any;
 
@@ -122,13 +132,17 @@ class Dynamic extends DenierDirective {
     return this.f();
   }
 
-  override render(e: ChildNode): ChildNode {
-    const v = this.value();
-    this.lastValue = v;
+  private renderValue(e: ChildNode, v: any): RenderResult {
     const d = makeDirective(v);
     this.directive = d;
     this.rendered = d.render(e);
     return this.rendered;
+  }
+
+  override render(e: ChildNode): RenderResult {
+    const v = this.value();
+    this.lastValue = v;
+    return this.renderValue(e, v);
   }
 
   override update(): void {
@@ -138,6 +152,8 @@ class Dynamic extends DenierDirective {
       this.directive?.update();
       return;
     }
+
+    this.lastValue = v;
 
     if (
       typeof v === "object" &&
@@ -149,7 +165,10 @@ class Dynamic extends DenierDirective {
       return;
     }
 
-    this.render(this.rendered!);
+    assert(this.rendered);
+    const [first, ...rest] = this.rendered;
+    rest.forEach((r) => r.remove());
+    this.renderValue(first, v);
   }
 }
 
@@ -160,10 +179,10 @@ class AttributeSetter extends DenierDirective {
     super();
   }
 
-  override render(host: ChildNode): ChildNode {
+  override render(host: ChildNode): RenderResult {
     this.host = host;
     (host as Element).setAttribute(this.name, this.valueDirective.value());
-    return host;
+    return [host];
   }
 
   override update(): void {
@@ -209,7 +228,7 @@ export class DenierTemplate {
   private code = "";
   private keyValue?: string | number;
   private directives = new Map<string, DenierDirective>();
-  private rendered: ChildNode | null = null;
+  private rendered: RenderResult | null = null;
 
   private cleanupTimer?: number;
   private cleanupTarget?: any;
@@ -248,31 +267,17 @@ export class DenierTemplate {
    */
   render(host: ChildNode): this {
     try {
-      let e: Element = document.createElement("div");
-      e.insertAdjacentHTML("afterbegin", this.code);
+      const t: HTMLTemplateElement = document.createElement("template");
+      t.innerHTML = this.code;
 
-      let rendered: ChildNode = e;
-      if (rendered.childNodes.length == 0) {
-        rendered = document.createTextNode("");
-      } else if (rendered.childNodes.length == 1) {
-        rendered = rendered.firstChild!;
-      }
+      // ??? Is cloning needed?
+      const fragment = t.content.cloneNode(true) as DocumentFragment;
+      const newElements = fragment.querySelectorAll("*");
 
-      this.rendered = rendered;
+      this.rendered = [...fragment.childNodes];
       this.mount(host);
 
-      if (rendered.nodeType !== Node.ELEMENT_NODE) {
-        return this;
-      }
-
       //debugTraceBegin("template", this.rendered);
-
-      const newElements: ChildNode[] = [];
-      const renderedElement = rendered as Element;
-      newElements.push(renderedElement);
-      if (renderedElement.hasChildNodes()) {
-        newElements.push(...renderedElement.querySelectorAll("*"));
-      }
 
       const directivesDone = new Set<string>();
       const getDirective = (id: string) => {
@@ -298,11 +303,8 @@ export class DenierTemplate {
             const id = elementMatch[1];
             const d = getDirective(id);
             debugTraceBegin("directive", d.constructor.name);
-            const node = d.render(child);
-            if (this.rendered === child) {
-              this.rendered = node;
-            }
-            debugTraceUpdateNode(child, node as Element);
+            d.render(child);
+            // debugTraceUpdateNode(child, node as Element);
             debugTraceEnd("directive");
             directivesDone.add(id);
             if (!DEBUG) {
@@ -349,7 +351,7 @@ export class DenierTemplate {
     return !!this.rendered;
   }
 
-  get renderedNode(): ChildNode {
+  get renderedResult(): RenderResult {
     if (!this.rendered) {
       throw new Error("Node is not rendered");
     }
@@ -366,6 +368,7 @@ export class DenierTemplate {
    * @param target optional argument that will be passed to the cleanup handler
    * @returns this template, to allow for chaining
    */
+  // ??? Replace with observer?
   cleanup<T>(handler: (o: T) => void, target?: T): this {
     if (this.cleanupHandler) {
       throw new Error("Can only register one cleanup handler");
@@ -373,7 +376,8 @@ export class DenierTemplate {
     this.cleanupHandler = handler;
     this.cleanupTarget = target;
     this.cleanupTimer = setInterval(() => {
-      if (this.rendered && !this.rendered.isConnected) {
+      const disconnected = (this.rendered || []).every((node) => !node.isConnected);
+      if (disconnected) {
         clearInterval(this.cleanupTimer);
         this.cleanupHandler?.(this.cleanupTarget);
         this.rendered = null;
@@ -398,7 +402,7 @@ export class DenierTemplate {
     if (!this.rendered) {
       throw new Error("Cannot mount unrendered template");
     }
-    host.replaceWith(this.rendered);
+    host.replaceWith(...this.rendered);
   }
 
   /**

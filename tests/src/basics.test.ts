@@ -8,6 +8,24 @@ const hostDocument = `
 </html>
 `;
 
+describe("Preconditions", () => {
+  let host: Element;
+
+  beforeEach(() => {
+    document.body.innerHTML = hostDocument;
+    host = document.getElementById("test-app")!;
+  });
+
+  test("Fragments behave as expected", () => {
+    const t = document.createElement("template");
+    t.innerHTML = `<div>A</div><div>B</div>`;
+    const f = t.content;
+    expect(f.childElementCount).toBe(2);
+    host.replaceWith(f);
+    expect(f.childElementCount).toBe(0);
+  });
+});
+
 describe("Basics", () => {
   let host: Element;
 

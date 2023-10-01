@@ -1,4 +1,4 @@
-import { ElementDirective } from "./directives";
+import { ElementDirective, RenderResult } from "./directives";
 import { DenierTemplate, html } from "./template";
 
 export abstract class DenierComponent extends ElementDirective {
@@ -11,14 +11,14 @@ export abstract class DenierComponent extends ElementDirective {
     return this._template;
   }
 
-  override process(host: Element): ChildNode {
+  override process(host: Element): RenderResult {
     const t = this.template;
     if (t.isRendered) {
       t.mount(host);
     } else {
       t.render(host);
     }
-    return t.renderedNode;
+    return t.renderedResult;
   }
 
   /**

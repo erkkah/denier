@@ -1,5 +1,5 @@
 import { DenierComponent } from "./component";
-import { Constructor, ElementDirective } from "./directives";
+import { Constructor, ElementDirective, RenderResult } from "./directives";
 import { findContext as findContextObject } from "./provider";
 import { DenierTemplate } from "./template";
 
@@ -12,7 +12,7 @@ class Builder<T, S extends DenierState<T>> extends ElementDirective {
     super();
   }
 
-  override process(e: Element): ChildNode {
+  override process(e: Element): RenderResult {
     // Find parent element with context
     const state = findContextObject(e, this.cls);
     if (state) {
@@ -29,7 +29,7 @@ class Builder<T, S extends DenierState<T>> extends ElementDirective {
       throw new Error(`No provider of ${this.cls.name} in context`);
     }
     // ???
-    return e;
+    return [e];
   }
 }
 

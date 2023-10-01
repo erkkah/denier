@@ -1,8 +1,8 @@
 import { randomID } from "./id";
 
 export type Constructor<T extends Object> = { new (...args: any): T };
-
 export type Key = string | number;
+export type RenderResult = ChildNode[];
 
 export abstract class DenierDirective {
   readonly ID = randomID();
@@ -15,7 +15,7 @@ export abstract class DenierDirective {
     return `<div id=${this.attr} ></div>`;
   }
 
-  abstract render(host: ChildNode): ChildNode;
+  abstract render(host: ChildNode): RenderResult;
 
   update(): void {}
 
@@ -33,20 +33,20 @@ export abstract class AttributeDirective extends DenierDirective {
     return this.attr;
   }
 
-  override render(host: ChildNode): ChildNode {
+  override render(host: ChildNode): RenderResult {
     this.process(host as Element);
-    return host;
+    return [host];
   }
 
   abstract process(e: Element): void;
 }
 
 export abstract class ElementDirective extends DenierDirective {
-  override render(host: ChildNode): ChildNode {
+  override render(host: ChildNode): RenderResult {
     return this.process(host as Element);
   }
 
-  abstract process(e: Element): ChildNode;
+  abstract process(e: Element): RenderResult;
 }
 
 class EventDirective extends AttributeDirective {

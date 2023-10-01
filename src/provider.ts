@@ -3,6 +3,7 @@ import {
   AttributeDirective,
   Constructor,
   ElementDirective,
+  RenderResult,
 } from "./directives";
 import { DenierTemplate } from "./template";
 
@@ -65,7 +66,7 @@ class Consumer<T extends Object> extends ElementDirective {
     super();
   }
 
-  override process(e: Element): ChildNode {
+  override process(e: Element): RenderResult {
     // Find parent element with context
     const ctx = findContext(e, this.cls);
     if (ctx) {
@@ -75,7 +76,7 @@ class Consumer<T extends Object> extends ElementDirective {
       throw new Error(`No provider of ${this.cls.name} in context`);
     }
     // ???
-    return e;
+    return [e];
   }
 }
 
