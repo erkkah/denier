@@ -5,7 +5,6 @@ import {
   debugTraceBegin,
   debugTraceEnd,
   debugTraceException,
-  // debugTraceUpdateNode,
 } from "./debug";
 import { DenierDirective, Key, RenderResult } from "./directives";
 
@@ -205,8 +204,17 @@ class AttributeSetter extends DenierDirective {
   }
 
   override render(host: ChildNode): RenderResult {
+    let value: any;
+    try {
+      value = this.valueDirective.value();
+    } catch (err) {
+      if (DEBUG) {
+        (host as Element).setAttribute(this.name, "❌");
+      }
+      throw new Error(`Error setting attribute "${this.name}": ${err}`);
+    }
     this.host = host;
-    (host as Element).setAttribute(this.name, this.valueDirective.value());
+    (host as Element).setAttribute(this.name, value);
     return [host];
   }
 
@@ -320,8 +328,6 @@ export class DenierTemplate {
       this.rendered = [...fragment.childNodes];
       this.mount(host);
 
-      //debugTraceBegin("template", this.rendered);
-
       const directivesDone = new Set<string>();
       const getDirective = (id: string) => {
         const d = this.directives.get(id);
@@ -339,7 +345,9 @@ export class DenierTemplate {
           if (match) {
             const id = match[1];
             const d = getDirective(id);
+            debugTraceBegin("directive", d.constructor.name);
             d.render(node as Comment);
+            debugTraceEnd("directive");
             directivesDone.add(id);
           }
         } else {
@@ -353,7 +361,6 @@ export class DenierTemplate {
               const d = getDirective(id);
               debugTraceBegin("directive", d.constructor.name);
               d.render(elem);
-              // debugTraceUpdateNode(child, node as Element);
               debugTraceEnd("directive");
               directivesDone.add(id);
               if (!DEBUG) {
@@ -389,7 +396,6 @@ export class DenierTemplate {
         );
       }
 
-      //debugTraceEnd("template");
       return this;
     } catch (err) {
       debugTraceException(err);

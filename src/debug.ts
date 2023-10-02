@@ -23,6 +23,9 @@ border: 4px solid red;
 
 if (DEBUG) {
   console.log("%c🧵 Denier is running in development mode!", boxStyle);
+  const errorStyle = document.createElement("style");
+  errorStyle.innerHTML = `denier-error {${boxStyle}}`;
+  document.body.appendChild(errorStyle);
 }
 
 class Trace {
@@ -31,7 +34,7 @@ class Trace {
 
 let traces: Trace[] = [];
 
-export type TraceSection = "template" | "node" | "directive";
+export type TraceSection = "node" | "directive";
 
 export function debugTraceBegin(section: TraceSection, info: any) {
   if (!DEBUG) return;
@@ -43,18 +46,6 @@ export function debugTraceEnd(section: TraceSection) {
   const top = traces.pop();
   if (top?.section !== section) {
     throw new Error("Inconsistent trace call");
-  }
-}
-
-export function debugTraceUpdateNode(from: Element, to: Element) {
-  if (!DEBUG) return;
-  if (!to) {
-    return;
-  }
-  for (const trace of traces) {
-    if (trace.info === from) {
-      trace.info = to;
-    }
   }
 }
 
@@ -71,13 +62,13 @@ export function debugTraceException(err: any) {
   const lines: string[] = [];
 
   for (const trace of traces) {
-    if (trace.info instanceof Element) {
-      const e = trace.info;
-      if (e.isConnected) {
-        lines.push(
-          e.tagName + (e.id && !e.id.startsWith("denier-") ? `:${e.id}` : "")
-        );
-        lastNode = e;
+    if (trace.info instanceof Node) {
+      const n = trace.info;
+      if (n.isConnected) {
+        if (n instanceof Comment && n.textContent?.startsWith("denier-")) {
+          lastNode = n as ChildNode;
+          lines.push("Component");
+        }
       }
     } else {
       lines.push(`[${trace.info}]`);
@@ -85,23 +76,14 @@ export function debugTraceException(err: any) {
   }
 
   if (lastNode) {
-    const errorElement = document.createElement("div");
-    errorElement.id = "denier-error";
-    errorElement.insertAdjacentHTML(
-      "afterbegin",
-      `
-      <style>
-        #denier-error {
-          ${boxStyle}
-        }
-      </style>
-      <error>
-        ${err.message}
-      </error>
-    `
-    );
-    lastNode.replaceWith(errorElement);
-    lastNode = errorElement;
+    const errorElement = document.createElement("denier-error");
+    errorElement.innerHTML = `❌ ${err.message}`;
+    if (lastNode instanceof Comment) {
+      lastNode.replaceWith(errorElement);
+      lastNode = errorElement;
+    } else {
+      lastNode.after(errorElement);
+    }
   }
 
   console.log("%c🧵 %s", lineStyle, lines.join(" -> "), lastNode ?? "");
@@ -109,7 +91,10 @@ export function debugTraceException(err: any) {
   traces = [];
 }
 
-export function assert(value: unknown, message?: string | Error): asserts value {
+export function assert(
+  value: unknown,
+  message?: string | Error
+): asserts value {
   if (!DEBUG) return;
   if (!value) {
     throw new Error(`Failed assertion: ${message ? message : ""}`);
