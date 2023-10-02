@@ -1,3 +1,5 @@
+import { DenierDirective, RenderResult } from "./directives";
+
 // @ts-ignore
 export const DEBUG = process.env.NODE_ENV !== "production";
 
@@ -24,7 +26,9 @@ border: 4px solid red;
 if (DEBUG) {
   console.log("%c🧵 Denier is running in development mode!", boxStyle);
   const errorStyle = document.createElement("style");
-  errorStyle.innerHTML = `denier-error {${boxStyle}}`;
+  errorStyle.innerHTML = `
+  denier-error {${boxStyle}}
+  denier-error-region {border: 4px dashed red; padding: 2px;}`;
   document.body.appendChild(errorStyle);
 }
 
@@ -65,8 +69,8 @@ export function debugTraceException(err: any) {
     if (trace.info instanceof Node) {
       const n = trace.info;
       if (n.isConnected) {
+        lastNode = n as ChildNode;
         if (n instanceof Comment && n.textContent?.startsWith("denier-")) {
-          lastNode = n as ChildNode;
           lines.push("Component");
         }
       }
@@ -98,5 +102,39 @@ export function assert(
   if (!DEBUG) return;
   if (!value) {
     throw new Error(`Failed assertion: ${message ? message : ""}`);
+  }
+}
+
+export function debugShowTemplateError(
+  first: RenderResult,
+  last: RenderResult,
+  directive: DenierDirective,
+  code: string
+) {
+  if (!DEBUG) return;
+
+  if (first.length && last.length) {
+    const start = first[0];
+    const end = last[last.length - 1];
+
+    const range = document.createRange();
+    range.setStart(start, 0);
+    range.setEnd(end, end.textContent?.length ?? 0);
+
+    const errorNode = document.createElement("denier-error-region");
+    range.surroundContents(errorNode);
+    debugTraceBegin("node", errorNode);
+  }
+
+  const idx = code.indexOf(directive.code());
+  if (idx >= 0) {
+    const excerpt = code
+      .replace(directive.code(), "❌")
+      .replace(/<!--denier-(\w+)-->/g, "🧵")
+      .replace(/denier-[^"']+(["'])/g, "🧵$1");
+    const cutoff = Math.max(idx + directive.code().length, 250);
+    console.log(
+      excerpt.length < cutoff ? excerpt : excerpt.substring(0, cutoff) + "…"
+    );
   }
 }
