@@ -21,6 +21,10 @@ export abstract class DenierComponent extends ElementDirective {
     return t.renderedResult;
   }
 
+  override update(): void {
+      this.template.update();
+  }
+
   /**
    * Gets called _once_ to build the component template.
    */

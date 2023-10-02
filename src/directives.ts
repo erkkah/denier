@@ -12,7 +12,7 @@ export abstract class DenierDirective {
   }
 
   code(): string {
-    return `<div id=${this.attr} ></div>`;
+    return `<!--${this.attr}-->`;
   }
 
   abstract render(host: ChildNode): RenderResult;

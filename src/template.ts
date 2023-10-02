@@ -82,8 +82,27 @@ class List extends DenierDirective {
     return result[result.length - 1];
   }
 
-  private removeResult(result: RenderResult): void {
-    result.forEach((r) => r.remove());
+  private removeNodes(result: ChildNode[]): void {
+    if (result.length > 0) {
+      const marker = document.createElement("comment");
+      const parent = result[0].parentNode!;
+      const grandparent = parent.parentNode!;
+      grandparent.replaceChild(marker, parent);
+      result.forEach((r) => r.remove());
+      grandparent.replaceChild(parent, marker);
+    }
+  }
+
+  private sameAfterCursor(cursor: ChildNode, nodes: RenderResult): boolean {
+    let a = cursor.nextSibling;
+
+    return nodes.every((b) => {
+      const equal = a === b;
+      if (a) {
+        a = a.nextSibling;
+      }
+      return equal;
+    });
   }
 
   override update(): void {
@@ -96,7 +115,9 @@ class List extends DenierDirective {
       const existing = this.keyed.get(d.key);
       if (existing) {
         const [directive, result] = existing;
-        cursor!.after(...result);
+        if (!this.sameAfterCursor(cursor, result)) {
+          cursor!.after(...result);
+        }
         cursor = this.cursorFromResult(result);
         directive.update();
         removed.delete(d.key);
@@ -109,13 +130,17 @@ class List extends DenierDirective {
       }
     }
 
+    const oldNodes: ChildNode[] = [];
+
     for (const key of removed) {
       const old = this.keyed.get(key);
       assert(old);
-      const [_, node] = old;
-      this.removeResult(node);
+      const [_, result] = old;
+      oldNodes.push(...result);
       this.keyed.delete(key);
     }
+
+    this.removeNodes(oldNodes);
   }
 }
 
@@ -234,24 +259,10 @@ export class DenierTemplate {
   private cleanupTarget?: any;
   private cleanupHandler?: (o: any) => void;
 
-  constructor(strings: TemplateStringsArray, substitutions: any[]) {
-    const directives: DenierDirective[] = substitutions.map((sub) =>
-      makeDirective(sub)
-    );
-
-    if (strings.length > 0) {
-      let v = strings[0];
-
-      for (let i = 1; i < strings.length; i++) {
-        const directive = directives[i - 1];
-        this.directives.set(directive.ID, directive);
-        v += directive.code();
-        v += strings[i];
-      }
-
-      this.code = v.trim();
-    }
-  }
+  constructor(
+    private strings: TemplateStringsArray,
+    private substitutions: any[]
+  ) {}
 
   /**
    * Renders this template into the specified `host` element.
@@ -267,12 +278,44 @@ export class DenierTemplate {
    */
   render(host: ChildNode): this {
     try {
+      const directives: DenierDirective[] = this.substitutions.map((sub) =>
+        makeDirective(sub)
+      );
+
+      if (this.strings.length > 0) {
+        let v = this.strings[0];
+
+        for (let i = 1; i < this.strings.length; i++) {
+          const directive = directives[i - 1];
+          this.directives.set(directive.ID, directive);
+          v += directive.code();
+          v += this.strings[i];
+        }
+
+        this.code = v.trim();
+      }
+
       const t: HTMLTemplateElement = document.createElement("template");
       t.innerHTML = this.code;
+      const fragment = t.content;
 
-      // ??? Is cloning needed?
-      const fragment = t.content.cloneNode(true) as DocumentFragment;
-      const newElements = fragment.querySelectorAll("*");
+      const w = document.createTreeWalker(
+        fragment,
+        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT
+      );
+
+      const newNodes: Node[] = [];
+
+      // Skip the top fragment node
+      if (w.nextNode()) {
+        for (
+          let node: Node | null = w.currentNode;
+          node != null;
+          node = w.nextNode()
+        ) {
+          newNodes.push(node);
+        }
+      }
 
       this.rendered = [...fragment.childNodes];
       this.mount(host);
@@ -288,40 +331,47 @@ export class DenierTemplate {
         return d;
       };
 
-      for (let child of newElements) {
-        debugTraceBegin("node", child);
+      for (const node of newNodes) {
+        debugTraceBegin("node", node);
 
-        if (!(child instanceof Element)) {
-          continue;
-        }
-
-        for (const attr of child.attributes) {
-          const elementMatch =
-            attr.name.match(/^denier-(\S+)$/) ||
-            attr.value.match(/^denier-(\S+)$/);
-          if (elementMatch) {
-            const id = elementMatch[1];
+        if (node.nodeType === Node.COMMENT_NODE) {
+          const match = node.textContent?.match(/^denier-(\S+)$/);
+          if (match) {
+            const id = match[1];
             const d = getDirective(id);
-            debugTraceBegin("directive", d.constructor.name);
-            d.render(child);
-            // debugTraceUpdateNode(child, node as Element);
-            debugTraceEnd("directive");
+            d.render(node as Comment);
             directivesDone.add(id);
-            if (!DEBUG) {
-              child.removeAttribute(attr.name);
-            }
-            continue;
           }
+        } else {
+          assert(node.nodeType === Node.ELEMENT_NODE);
+          const elem = node as Element;
 
-          const valueMatch = attr.value.match(/<div id=denier-(\S+)\s*>/m);
-          if (valueMatch) {
-            const id = valueMatch[1];
-            const setter = new AttributeSetter(attr.name, getDirective(id));
-            this.directives.set(id, setter);
-            debugTraceBegin("directive", "AttributeSetter");
-            setter.render(child);
-            debugTraceEnd("directive");
-            directivesDone.add(id);
+          for (const attr of elem.attributes) {
+            const elementMatch = attr.name.match(/^denier-(\S+)$/);
+            if (elementMatch) {
+              const id = elementMatch[1];
+              const d = getDirective(id);
+              debugTraceBegin("directive", d.constructor.name);
+              d.render(elem);
+              // debugTraceUpdateNode(child, node as Element);
+              debugTraceEnd("directive");
+              directivesDone.add(id);
+              if (!DEBUG) {
+                elem.removeAttribute(attr.name);
+              }
+              continue;
+            }
+
+            const valueMatch = attr.value.match(/<!--denier-(\S+)-->/m);
+            if (valueMatch) {
+              const id = valueMatch[1];
+              const setter = new AttributeSetter(attr.name, getDirective(id));
+              this.directives.set(id, setter);
+              debugTraceBegin("directive", "AttributeSetter");
+              setter.render(elem);
+              debugTraceEnd("directive");
+              directivesDone.add(id);
+            }
           }
         }
 
@@ -376,7 +426,9 @@ export class DenierTemplate {
     this.cleanupHandler = handler;
     this.cleanupTarget = target;
     this.cleanupTimer = setInterval(() => {
-      const disconnected = (this.rendered || []).every((node) => !node.isConnected);
+      const disconnected = (this.rendered || []).every(
+        (node) => !node.isConnected
+      );
       if (disconnected) {
         clearInterval(this.cleanupTimer);
         this.cleanupHandler?.(this.cleanupTarget);
