@@ -18,9 +18,17 @@ describe("Preconditions", () => {
 
   test("Fragments behave as expected", () => {
     const t = document.createElement("template");
-    t.innerHTML = `<div>A</div><div>B</div>`;
+    t.innerHTML = `<div>A</div><div>B</div>C<div><div>D</div><!--comment--></div>`;
     const f = t.content;
-    expect(f.childElementCount).toBe(2);
+    expect(f.childElementCount).toBe(3);
+    const w = document.createTreeWalker(f, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT);
+    let comment = "";
+    for (let node: Node | null = w.currentNode; node != null; node = w.nextNode()) {
+      if (node.nodeType === Node.COMMENT_NODE) {
+        comment = node.textContent ?? "";
+      }
+    }
+    expect(comment).toBe("comment");
     host.replaceWith(f);
     expect(f.childElementCount).toBe(0);
   });
@@ -130,7 +138,7 @@ describe("Attribute values", () => {
     let value = 4711;
     expect(() =>
       html`<div id=${() => value}>Content</div>`.render(host)
-    ).toThrowError("Template error");
+    ).toThrowError("Template syntax error");
   });
 
   describe("Elements", () => {
@@ -153,14 +161,14 @@ describe("Attribute values", () => {
       const tag = "div";
       expect(() =>
         html`<${tag} id="4711">Content</${tag}>`.render(host)
-      ).toThrowError("Template error");
+      ).toThrowError("Template syntax error");
     });
 
     it("fails to render dynamic tag names", () => {
       const tag = "div";
       expect(() =>
         html`<${() => tag} id="4711">Content</${() => tag}>`.render(host)
-      ).toThrowError("Template error");
+      ).toThrowError("Template syntax error");
     });
 
     it("renders static plain html as string", () => {
