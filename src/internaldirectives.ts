@@ -95,6 +95,8 @@ class Dynamic extends DenierDirective {
 class List extends DenierDirective {
   private marker = document.createComment(this.ID) as ChildNode;
   private keyed = new Map<Key, [DenierDirective, RenderResult]>();
+  private positions = new Map<Key, number>();
+  private order: Key[] = [];
 
   constructor(private items: Iterable<any>) {
     super();
@@ -127,23 +129,23 @@ class List extends DenierDirective {
     });
 
     const nodes: Node[] = [];
+    this.order = [];
+    this.positions.clear();
+    this.keyed.clear();
 
     for (const item of this.items) {
       const d = makeDirective(item);
       const node = document.createComment("");
       const rendered = d.render(node);
       this.keyed.set(d.key, [d, rendered]);
+      this.positions.set(d.key, this.order.length);
+      this.order.push(d.key);
       nodes.push(...rendered);
     }
 
     this.marker.after(...nodes);
 
     return [this.marker];
-  }
-
-  private cursorFromResult(result: RenderResult): ChildNode {
-    assert(result.length > 0);
-    return result[result.length - 1];
   }
 
   private removeNodes(result: ChildNode[]): void {
@@ -157,42 +159,81 @@ class List extends DenierDirective {
     }
   }
 
-  private sameAfterCursor(cursor: ChildNode, nodes: RenderResult): boolean {
-    let a = cursor.nextSibling;
-
-    return nodes.every((b) => {
-      const equal = a === b;
-      if (a) {
-        a = a.nextSibling;
-      }
-      return equal;
-    });
-  }
-
+  
   override update(): void {
     let cursor: ChildNode | null = this.marker;
     const removed = new Set(this.keyed.keys());
 
-    for (const item of this.items) {
-      const d = makeDirective(item);
+    const target = [...this.items].map((d) => makeDirective(d));
 
-      const existing = this.keyed.get(d.key);
-      if (existing) {
-        const [directive, result] = existing;
-        if (!this.sameAfterCursor(cursor, result)) {
-          cursor!.after(...result);
-        }
-        cursor = this.cursorFromResult(result);
-        directive.update();
-        removed.delete(d.key);
-      } else {
+    let q = 0;
+
+    const newOrder: Key[] = [];
+
+    while (q < target.length) {
+      // ??? Use DocumentFragment instead?
+      const newItems: ChildNode[] = [];
+      let matchPosition: number | undefined;
+
+      while (
+        q < target.length &&
+        (matchPosition = this.positions.get(target[q].key)) === undefined
+      ) {
+        const d = target[q];
+
         const node = document.createComment("");
         const rendered = d.render(node);
         this.keyed.set(d.key, [d, rendered]);
-        cursor!.after(...rendered);
-        cursor = this.cursorFromResult(rendered);
+        this.positions.set(d.key, newOrder.length);
+        newOrder.push(d.key);
+        newItems.push(...rendered);
+        q++;
+      }
+
+      if (newItems.length > 0) {
+        cursor!.after(...newItems);
+        cursor = newItems.pop()!;
+        newItems.splice(0);
+      }
+
+      if (matchPosition !== undefined) {
+        let length = 1;
+        const matchedKey = this.order[matchPosition];
+        this.positions.set(matchedKey, newOrder.length);
+        newOrder.push(matchedKey);
+        removed.delete(matchedKey);
+        this.keyed.get(matchedKey)![0].update();
+
+        while (
+          ++q < target.length &&
+          this.order[matchPosition + length] === target[q].key
+        ) {
+          const matchedKey = this.order[matchPosition + length];
+          this.positions.set(matchedKey, newOrder.length);
+          newOrder.push(matchedKey);
+          removed.delete(matchedKey);
+          this.keyed.get(matchedKey)![0].update();
+          length++;
+        }
+
+        const matchStartKey = this.order[matchPosition];
+        const [, matchStart] = this.keyed.get(matchStartKey)!;
+        const matchEndKey = this.order[matchPosition + length - 1];
+        const [, matchEnd] = this.keyed.get(matchEndKey)!;
+
+        if (cursor.nextSibling !== matchStart[0]) {
+          const match = document.createRange();
+          match.setStartBefore(matchStart[0]);
+          match.setEndAfter(matchEnd[matchEnd.length - 1]);
+  
+          const matchingNodes = match.extractContents();
+          cursor.after(matchingNodes);
+        }
+        cursor = matchEnd[matchEnd.length - 1];
       }
     }
+
+    this.order = newOrder;
 
     const oldNodes: ChildNode[] = [];
 
