@@ -118,8 +118,8 @@ export function debugShowTemplateError(
     const end = last[last.length - 1];
 
     const range = document.createRange();
-    range.setStart(start, 0);
-    range.setEnd(end, end.textContent?.length ?? 0);
+    range.setStartBefore(start);
+    range.setEndAfter(end);
 
     const errorNode = document.createElement("denier-error-region");
     range.surroundContents(errorNode);
