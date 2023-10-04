@@ -2,6 +2,10 @@ import { ElementDirective, RenderResult } from "./directives";
 import { DenierTemplate, html } from "./template";
 
 export abstract class DenierComponent extends ElementDirective {
+  override get ID(): string {
+    return this.template.ID;
+  }
+
   private _template?: DenierTemplate;
 
   get template(): DenierTemplate {

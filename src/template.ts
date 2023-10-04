@@ -7,9 +7,11 @@ import {
   debugTraceException,
 } from "./debug";
 import { DenierDirective, Key, RenderResult } from "./directives";
+import { randomID } from "./id";
 import { AttributeSetter, makeDirective } from "./internaldirectives";
 
 export class DenierTemplate {
+  readonly ID = randomID();
   private code = "";
   private keyValue?: string | number;
   private directives = new Map<string, DenierDirective>();

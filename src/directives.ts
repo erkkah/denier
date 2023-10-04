@@ -5,7 +5,11 @@ export type Key = string | number;
 export type RenderResult = ChildNode[];
 
 export abstract class DenierDirective {
-  readonly ID = randomID();
+  private _ID = randomID();
+
+  get ID() {
+    return this._ID;
+  }
 
   value(): any {
     return this.code();
