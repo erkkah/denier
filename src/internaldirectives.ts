@@ -180,6 +180,7 @@ class List extends DenierDirective {
         const [_, result] = old;
         oldNodes.push(...result);
         this.keyed.delete(key);
+        this.positionByKey.delete(key);
       }
 
       this.removeNodes(oldNodes);
@@ -194,10 +195,12 @@ class List extends DenierDirective {
 
     let q = 0;
 
+    // For all items in the target configuration
     while (q < target.length) {
       const newItems: ChildNode[] = [];
       let matchPosition: number | undefined;
 
+      // Track a sequence of new items
       while (
         q < target.length &&
         (matchPosition = this.positionByKey.get(target[q].key)) === undefined
@@ -211,17 +214,22 @@ class List extends DenierDirective {
         q++;
       }
 
+      // Insert the new items, if any
       if (newItems.length > 0) {
         cursor!.after(...newItems);
         cursor = newItems.pop()!;
         newItems.splice(0);
       }
 
+      // We stopped finding new items above,
+      // track sequence of existing items with same order in current
+      // and target configurations.
       if (matchPosition !== undefined) {
         let length = 1;
         const matchStartKey = target[q].key;
-        removed.delete(matchStartKey);
         assert(this.keyed.has(matchStartKey), `${matchStartKey}`);
+
+        // ??? Move updates out of the loop!
         this.keyed.get(matchStartKey)![0].update();
 
         let matchEndKey = matchStartKey;
@@ -231,7 +239,6 @@ class List extends DenierDirective {
           this.keyByPosition[matchPosition + length] === target[q].key
         ) {
           matchEndKey = target[q].key;
-          removed.delete(matchEndKey);
           this.keyed.get(matchEndKey)![0].update();
           length++;
         }
@@ -240,12 +247,29 @@ class List extends DenierDirective {
         const [, matchEnd] = this.keyed.get(matchEndKey)!;
 
         if (cursor.nextSibling !== matchStart[0]) {
-          const match = document.createRange();
-          match.setStartBefore(matchStart[0]);
-          match.setEndAfter(matchEnd[matchEnd.length - 1]);
+          // Here, figure out if the range between cursor and match start is
+          // smaller than the matching range. Then move the smallest range.
+          const prefixStart = cursor.nextSibling!;
+          let prefixEnd: Node | null = prefixStart;
+          let prefixLength = 1;
+          while (prefixEnd?.nextSibling && prefixEnd.nextSibling !== matchStart[0]) {
+            prefixEnd = prefixEnd.nextSibling;
+            prefixLength++;
+          }
 
-          const matchingNodes = match.extractContents();
-          cursor.after(matchingNodes);
+          const match = document.createRange();
+          if (prefixEnd && prefixLength < length) {
+            match.setStartBefore(prefixStart);
+            match.setEndAfter(prefixEnd);
+            const prefixNodes = match.extractContents();
+            matchEnd[matchEnd.length - 1].after(prefixNodes);
+          } else {
+            match.setStartBefore(matchStart[0]);
+            match.setEndAfter(matchEnd[matchEnd.length - 1]);
+
+            const matchingNodes = match.extractContents();
+            cursor.after(matchingNodes);
+          }
         }
         cursor = matchEnd[matchEnd.length - 1];
       }
