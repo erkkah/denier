@@ -95,8 +95,8 @@ class Dynamic extends DenierDirective {
 class List extends DenierDirective {
   private marker = document.createComment(this.ID) as ChildNode;
   private keyed = new Map<Key, [DenierDirective, RenderResult]>();
-  private positions = new Map<Key, number>();
-  private order: Key[] = [];
+  private positionByKey = new Map<Key, number>();
+  private keyByPosition: Key[] = [];
 
   constructor(private items: Iterable<any>) {
     super();
@@ -129,8 +129,8 @@ class List extends DenierDirective {
     });
 
     const nodes: Node[] = [];
-    this.order = [];
-    this.positions.clear();
+    this.keyByPosition.splice(0);
+    this.positionByKey.clear();
     this.keyed.clear();
 
     for (const item of this.items) {
@@ -138,8 +138,9 @@ class List extends DenierDirective {
       const node = document.createComment("");
       const rendered = d.render(node);
       this.keyed.set(d.key, [d, rendered]);
-      this.positions.set(d.key, this.order.length);
-      this.order.push(d.key);
+      const position = this.positionByKey.size;
+      this.positionByKey.set(d.key, position);
+      this.keyByPosition.push(d.key);
       nodes.push(...rendered);
     }
 
@@ -159,38 +160,51 @@ class List extends DenierDirective {
     }
   }
 
-  
   override update(): void {
     let cursor: ChildNode | null = this.marker;
+
     const removed = new Set(this.keyed.keys());
+    const removeOld = () => {
+      const oldNodes: ChildNode[] = [];
+
+      for (const key of removed) {
+        const old = this.keyed.get(key);
+        assert(old);
+        const [_, result] = old;
+        oldNodes.push(...result);
+        this.keyed.delete(key);
+      }
+
+      this.removeNodes(oldNodes);
+      removed.clear();
+    };
 
     const target = [...this.items].map((d) => makeDirective(d));
 
     let q = 0;
 
-    const newOrder: Key[] = [];
 
     while (q < target.length) {
-      // ??? Use DocumentFragment instead?
       const newItems: ChildNode[] = [];
       let matchPosition: number | undefined;
 
       while (
         q < target.length &&
-        (matchPosition = this.positions.get(target[q].key)) === undefined
+        (matchPosition = this.positionByKey.get(target[q].key)) === undefined
       ) {
         const d = target[q];
 
         const node = document.createComment("");
         const rendered = d.render(node);
         this.keyed.set(d.key, [d, rendered]);
-        this.positions.set(d.key, newOrder.length);
-        newOrder.push(d.key);
         newItems.push(...rendered);
         q++;
       }
 
       if (newItems.length > 0) {
+        if (newItems.length == target.length) {
+          removeOld();
+        }
         cursor!.after(...newItems);
         cursor = newItems.pop()!;
         newItems.splice(0);
@@ -198,34 +212,31 @@ class List extends DenierDirective {
 
       if (matchPosition !== undefined) {
         let length = 1;
-        const matchedKey = this.order[matchPosition];
-        this.positions.set(matchedKey, newOrder.length);
-        newOrder.push(matchedKey);
-        removed.delete(matchedKey);
-        this.keyed.get(matchedKey)![0].update();
+        const matchStartKey = target[q].key;
+        removed.delete(matchStartKey);
+        assert(this.keyed.has(matchStartKey), `${matchStartKey}`);
+        this.keyed.get(matchStartKey)![0].update();
+
+        let matchEndKey = matchStartKey;
 
         while (
           ++q < target.length &&
-          this.order[matchPosition + length] === target[q].key
+          this.keyByPosition[matchPosition + length] === target[q].key
         ) {
-          const matchedKey = this.order[matchPosition + length];
-          this.positions.set(matchedKey, newOrder.length);
-          newOrder.push(matchedKey);
-          removed.delete(matchedKey);
-          this.keyed.get(matchedKey)![0].update();
+          matchEndKey = target[q].key;
+          removed.delete(matchEndKey);
+          this.keyed.get(matchEndKey)![0].update();
           length++;
         }
 
-        const matchStartKey = this.order[matchPosition];
         const [, matchStart] = this.keyed.get(matchStartKey)!;
-        const matchEndKey = this.order[matchPosition + length - 1];
         const [, matchEnd] = this.keyed.get(matchEndKey)!;
 
         if (cursor.nextSibling !== matchStart[0]) {
           const match = document.createRange();
           match.setStartBefore(matchStart[0]);
           match.setEndAfter(matchEnd[matchEnd.length - 1]);
-  
+
           const matchingNodes = match.extractContents();
           cursor.after(matchingNodes);
         }
@@ -233,19 +244,10 @@ class List extends DenierDirective {
       }
     }
 
-    this.order = newOrder;
+    this.keyByPosition = target.map((item) => item.key);
+    this.positionByKey = new Map(target.map((item, index) => [item.key, index]));
 
-    const oldNodes: ChildNode[] = [];
-
-    for (const key of removed) {
-      const old = this.keyed.get(key);
-      assert(old);
-      const [_, result] = old;
-      oldNodes.push(...result);
-      this.keyed.delete(key);
-    }
-
-    this.removeNodes(oldNodes);
+    removeOld();
   }
 }
 
