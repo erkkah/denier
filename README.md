@@ -7,20 +7,20 @@ I guess we should throw in "opiniated" too._
 
 **Denier** has templates, events, context-provided objects, state, efficient DOM updates, typed styles et.c.
 
-All in less than 500 lines of Typescript, with no external run-time dependencies.
-The minimized and gzipped version (why do we still list this?) is 1k.
+All in about 850 lines of code, with no external run-time dependencies.
+The minimized and gzipped version (why do we still list this?) is about 3k.
 
 - Simple life-cycle, no magic.
 - No extra DOMs or diffing.
 - Mixes well with other libraries and frameworks.
 - No special syntax, just plain HTML and Javascript/Typescript.
+- Nice debug helpers
 
 The name "Denier" refers to the unit for tiny thread sizes, and the fact that we deny the existence of all other similar frameworks. Or not. It's just a name. :socks:
 
 ## TODO
 
-- Debug helpers
-- Tighter error handling
+- HMR
 
 ## Getting started
 
@@ -105,14 +105,22 @@ const button = html`
 `;
 ```
 
+### Keyed lists
+
+TBW
+
 ### "Reactive" components and state
 
 * state in, UI out
-* events in, new state out
+* events in, state out
+
+TBW
 
 ### Cleanup
 
 * Cleanup handler
+
+TBW
 
 ### Directives
 
@@ -122,6 +130,10 @@ const button = html`
 * using
 * build
 
+TBW
+
 ## User input and safety
 
 * No "safe" or "raw" HTML input
+
+TBW
