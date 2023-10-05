@@ -11,7 +11,16 @@ import { randomID } from "./id";
 import { AttributeSetter, makeDirective } from "./internaldirectives";
 
 export class DenierTemplate {
-  readonly ID = randomID();
+  private _ID = "";
+
+  
+  get ID(): string {
+    if (this._ID === "") {
+      this._ID = randomID();
+    }
+    return this._ID;
+  }
+
   private code = "";
   private keyValue?: string | number;
   private directives = new Map<string, DenierDirective>();
