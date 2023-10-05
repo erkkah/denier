@@ -188,7 +188,9 @@ class List extends DenierDirective {
 
     const target = [...this.items].map((d) => makeDirective(d));
     for (const item of target) {
-      removed.delete(item.key);
+      if (removed.delete(item.key)) {
+        this.keyed.get(item.key)![0].update();
+      }
     }
 
     removeOld();
@@ -229,9 +231,6 @@ class List extends DenierDirective {
         const matchStartKey = target[q].key;
         assert(this.keyed.has(matchStartKey), `${matchStartKey}`);
 
-        // ??? Move updates out of the loop!
-        this.keyed.get(matchStartKey)![0].update();
-
         let matchEndKey = matchStartKey;
 
         while (
@@ -239,7 +238,6 @@ class List extends DenierDirective {
           this.keyByPosition[matchPosition + length] === target[q].key
         ) {
           matchEndKey = target[q].key;
-          this.keyed.get(matchEndKey)![0].update();
           length++;
         }
 
