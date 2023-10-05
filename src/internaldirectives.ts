@@ -151,12 +151,19 @@ class List extends DenierDirective {
 
   private removeNodes(result: ChildNode[]): void {
     if (result.length > 0) {
-      const marker = document.createElement("comment");
-      const parent = result[0].parentNode!;
-      const grandparent = parent.parentNode!;
-      grandparent.replaceChild(marker, parent);
-      result.forEach((r) => r.remove());
-      grandparent.replaceChild(parent, marker);
+      if (result.length > 100) {
+        const marker = document.createElement("comment");
+        const range = document.createRange();
+        const parent = result[0].parentNode! as unknown as ChildNode;
+        assert(parent.before);
+        parent.before(marker);
+        range.selectNode(parent);
+        const disconnected = range.extractContents();
+        result.forEach((r) => r.remove());
+        marker.replaceWith(disconnected);
+      } else {
+        result.forEach((r) => r.remove());
+      }
     }
   }
 
@@ -176,13 +183,16 @@ class List extends DenierDirective {
       }
 
       this.removeNodes(oldNodes);
-      removed.clear();
     };
 
     const target = [...this.items].map((d) => makeDirective(d));
+    for (const item of target) {
+      removed.delete(item.key);
+    }
+
+    removeOld();
 
     let q = 0;
-
 
     while (q < target.length) {
       const newItems: ChildNode[] = [];
@@ -202,9 +212,6 @@ class List extends DenierDirective {
       }
 
       if (newItems.length > 0) {
-        if (newItems.length == target.length) {
-          removeOld();
-        }
         cursor!.after(...newItems);
         cursor = newItems.pop()!;
         newItems.splice(0);
@@ -245,9 +252,9 @@ class List extends DenierDirective {
     }
 
     this.keyByPosition = target.map((item) => item.key);
-    this.positionByKey = new Map(target.map((item, index) => [item.key, index]));
-
-    removeOld();
+    this.positionByKey = new Map(
+      target.map((item, index) => [item.key, index])
+    );
   }
 }
 
