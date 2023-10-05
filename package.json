@@ -15,6 +15,7 @@
   ],
   "scripts": {
     "start": "parcel serve --no-cache example/index.html",
+    "bench": "parcel serve --no-cache benchmark/index.html",
     "build": "parcel build --no-cache",
     "test": "cd tests && npm run test",
     "prepack": "npm run build"
@@ -29,6 +30,14 @@
   "targets": {
     "main": {},
     "module": {},
+    "module-prod": {
+      "context": "browser",
+      "isLibrary": true,
+      "optimize": true,
+      "outputFormat": "esmodule",
+      "distDir": "dist",
+      "source": "src/index.ts"
+    },
     "cdn": {
       "context": "browser",
       "optimize": true,
