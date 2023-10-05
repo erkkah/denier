@@ -18,10 +18,6 @@ The minimized and gzipped version (why do we still list this?) is about 3k.
 
 The name "Denier" refers to the unit for tiny thread sizes, and the fact that we deny the existence of all other similar frameworks. Or not. It's just a name. :socks:
 
-## TODO
-
-- HMR
-
 ## Getting started
 
 ### Basics
@@ -137,3 +133,10 @@ TBW
 * No "safe" or "raw" HTML input
 
 TBW
+
+## TODO
+
+- More docs
+- More tests and testing
+- More examples
+- HMR
