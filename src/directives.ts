@@ -84,5 +84,17 @@ export function ref<T extends Element>(cb: (e: T) => void): RefDirective<T> {
   return new RefDirective(cb);
 }
 
-// <div ${props({a: b, c: d})}>
-// <div ${props<HTMLDivElement>({a: b, c: d})}>
+class FlagDirective extends AttributeDirective {
+  constructor(private flag: string, private state: boolean) {
+    super();
+  }
+
+  override process(e: Element): void {
+      e.toggleAttribute(this.flag, this.state);
+  }
+}
+
+export function flag(flag: string, state: boolean): FlagDirective {
+  return new FlagDirective(flag, state);
+}
+
