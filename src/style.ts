@@ -17,3 +17,26 @@ export function style<S extends CSS.Properties = CSS.Properties>(
 ): StyleDirective {
   return new StyleDirective(style);
 }
+
+export class DenierStylesheet {
+  constructor(
+    private strings: TemplateStringsArray,
+    private substitutions: any[]
+  ) {}
+
+  public code(): string {
+    let code = this.strings[0];
+    for (let i = 1; i < this.strings.length; i++) {
+      code += this.strings[i];
+      code += this.substitutions[i - 1];
+    }
+    return code;
+  }
+}
+
+export function css(
+  strings: TemplateStringsArray,
+  ...substitutions: any[]
+): DenierStylesheet {
+  return new DenierStylesheet(strings, substitutions);
+}

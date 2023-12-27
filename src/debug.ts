@@ -25,11 +25,14 @@ border: 4px solid red;
 
 if (DEBUG) {
   console.log("%c🧵 Denier is running in development mode!", boxStyle);
+}
+
+function errorStyle() {
   const errorStyle = document.createElement("style");
   errorStyle.innerHTML = `
   denier-error {${boxStyle}}
   denier-error-region {border: 4px dashed red; padding: 2px;}`;
-  document.body.appendChild(errorStyle);
+  return errorStyle;
 }
 
 class Trace {
@@ -82,6 +85,7 @@ export function debugTraceException(err: any) {
   if (lastNode) {
     const errorElement = document.createElement("denier-error");
     errorElement.innerHTML = `❌ ${err.message}`;
+    errorElement.appendChild(errorStyle())
     if (lastNode instanceof Comment) {
       lastNode.replaceWith(errorElement);
       lastNode = errorElement;
@@ -122,6 +126,7 @@ export function debugShowTemplateError(
     range.setEndAfter(end);
 
     const errorNode = document.createElement("denier-error-region");
+    errorNode.appendChild(errorStyle())
     range.surroundContents(errorNode);
     debugTraceBegin("node", errorNode);
   }

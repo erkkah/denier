@@ -9,11 +9,13 @@ import {
 import { DenierDirective, Key, RenderResult } from "./directives";
 import { randomID } from "./id";
 import { AttributeSetter, makeDirective } from "./internaldirectives";
+import { DenierStylesheet } from "./style";
 
 export class DenierTemplate {
   private _ID = "";
+  private _shadowHost?: HTMLDivElement | HTMLSpanElement;
+  private _styleCode?: string;
 
-  
   get ID(): string {
     if (this._ID === "") {
       this._ID = randomID();
@@ -67,7 +69,7 @@ export class DenierTemplate {
       }
 
       const t: HTMLTemplateElement = document.createElement("template");
-      t.innerHTML = this.code;
+      t.innerHTML = this.code + (this._styleCode ? `<style>${this._styleCode}</style>`: "");
       const fragment = t.content;
 
       const w = document.createTreeWalker(
@@ -225,11 +227,31 @@ export class DenierTemplate {
    *
    * It is an error to mount an unrendered template.
    */
-  mount(host: ChildNode) {
+  private mount(host: ChildNode) {
     if (!this.rendered) {
       throw new Error("Cannot mount unrendered template");
     }
-    host.replaceWith(...this.rendered);
+    if (this._shadowHost) {
+      const shadow = this._shadowHost.attachShadow({ mode: "open" });
+      shadow.append(...this.rendered);
+      host.replaceWith(this._shadowHost);  
+    } else {
+      host.replaceWith(...this.rendered);
+    }
+  }
+
+  shadow(kind: "div" | "span" = "div"): this {
+    if (this.rendered) {
+      throw new Error("Cannot create shadow after rendering");
+    }
+    this._shadowHost = document.createElement(kind);
+    return this;
+  }
+
+  style(style: DenierStylesheet): this {
+    this.shadow();
+    this._styleCode = style.code();
+    return this;
   }
 
   /**
