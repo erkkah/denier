@@ -27,8 +27,13 @@ export class DenierStylesheet {
   public code(): string {
     let code = this.strings[0];
     for (let i = 1; i < this.strings.length; i++) {
+      const sub = this.substitutions[i - 1];
+      if (sub instanceof DenierStylesheet) {
+        code += sub.code();
+      } else {
+        code += sub;
+      }
       code += this.strings[i];
-      code += this.substitutions[i - 1];
     }
     return code;
   }

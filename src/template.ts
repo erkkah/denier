@@ -121,7 +121,7 @@ export class DenierTemplate {
           assert(node.nodeType === Node.ELEMENT_NODE);
           const elem = node as Element;
 
-          for (const attr of elem.attributes) {
+          for (const attr of [...elem.attributes]) {
             const elementMatch = attr.name.match(/^denier-(\S+)$/);
             if (elementMatch) {
               const id = elementMatch[1];
@@ -234,22 +234,28 @@ export class DenierTemplate {
     if (this._shadowHost) {
       const shadow = this._shadowHost.attachShadow({ mode: "open" });
       shadow.append(...this.rendered);
-      host.replaceWith(this._shadowHost);  
+      host.replaceWith(this._shadowHost);
+      this.rendered = [this._shadowHost];
     } else {
       host.replaceWith(...this.rendered);
     }
   }
 
   shadow(kind: "div" | "span" = "div"): this {
+    if (this._shadowHost) {
+      throw new Error("Shadow host already created");
+    }
     if (this.rendered) {
-      throw new Error("Cannot create shadow after rendering");
+      throw new Error("Cannot create shadow host after rendering");
     }
     this._shadowHost = document.createElement(kind);
     return this;
   }
 
   style(style: DenierStylesheet): this {
-    this.shadow();
+    if (!this._shadowHost) {
+      throw new Error("Cannot apply style without shadow root.");
+    }
     this._styleCode = style.code();
     return this;
   }
