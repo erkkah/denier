@@ -92,18 +92,24 @@ Updating a template is shallow - sub-templates are not updated when the parent t
 Denier has a simple attribute directive for adding event handlers:
 
 ```typescript
-function doStuff() {
+function doStuff(e) {
   // Stuff being done here
 }
 
 const button = html`
-  <button ${on("click", doStuff)}>PRESS ME</button>
+  <button ${on("click", (e) => doStuff(e))}>PRESS ME</button>
 `;
 ```
 
 ### Keyed lists
 
-TBW
+List items can be keyed to allow for efficient update handling:
+
+```typescript
+const list = html`
+  <ul>${items.map((item) => html`<li>${item.name}</li>`.key(item.id))}</ul>
+`
+```
 
 ### "Reactive" components and state
 
@@ -122,9 +128,11 @@ TBW
 
 * on
 * ref
+* flag
 * provide
 * using
 * build
+* style
 
 TBW
 
