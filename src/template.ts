@@ -195,7 +195,6 @@ export class DenierTemplate {
    * @param target optional argument that will be passed to the cleanup handler
    * @returns this template, to allow for chaining
    */
-  // ??? Replace with observer?
   cleanup<T>(handler: (o: T) => void, target?: T): this {
     if (this.cleanupHandler) {
       throw new Error("Can only register one cleanup handler");

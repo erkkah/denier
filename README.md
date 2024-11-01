@@ -54,6 +54,12 @@ This would result in the following:
 
 > Note that the template replaces the host tag!
 
+### Examples
+
+- [basic template use](example/basics.ts)
+- [component style use](example/component.ts)
+- [state provisioning and rebuilds](example/state.ts)
+
 ### Sub templates / components
 
 By using a template within another template, we have a simple method for creating components:
@@ -113,32 +119,118 @@ const list = html`
 
 ### "Reactive" components and state
 
-* state in, UI out
-* events in, state out
+- state in, UI out
+- events in, state out
 
 TBW
 
 ### Cleanup
 
-* Cleanup handler
+- Cleanup handler
 
 TBW
 
 ### Directives
 
-* on
-* ref
-* flag
-* provide
-* using
-* build
-* style
+#### `on`
+
+The `on` directive registers event handlers, as described in [Events](#events) above.
+
+#### `ref`
+
+Use `ref` to get a reference to an HTML element:
+
+```html
+<div ${ref((e) => doStuffWithElement(e))}></div>
+```
+
+#### `flag`
+
+The `flag` directive sets or resets a boolean HTML attribute:
+
+```html
+<div ${flag("visible", false)}></div>
+```
+
+#### `provide`
+
+The `provide` directive injects an object instance into the DOM context,
+making it available to sub-elements:
+
+```typescript
+html`
+  <div
+    ${
+      provide(() => new MyObject())
+    }
+  >
+  <!-- ... -->
+  </div>
+`;
+```
+
+#### `using`
+
+The `using` directive looks up the closest provided object in the DOM context:
+
+```typescript
+html`
+    ${
+      using(
+        MyObject,
+        (o) => html`The object can be accessed here: ${o.someProperty}`
+      )
+    }
+`;
+```
+
+Note that the template is not rebuilt when the provided object is updated.
+Since the provided object can be of any type, it is not even a well-defined
+what "updated" means.
+
+For this, you need Denier state objects.
+
+#### `build` and state objects
+
+To get automatic builds on state changes, `provide` an object that extends `DenierState`:
+
+```typescript
+class CounterState extends DenierState<{ count: number }> {
+  constructor() {
+    super({ count: 42 });
+  }
+}
+```
+
+Then use the `build` directive:
+
+```typescript
+html`
+    ${
+      // Build a template, initiated with the provided state.
+      // The template gets updated on state changes.
+      build(
+        CounterState,
+        (s) =>
+          html`
+            <div>
+              Initial: ${s.get().count}, Current: ${() => s.get().count}
+            </div>
+          `
+      )
+    }
+`;
+```
+
+> Note the difference between using static and dynamic evaluation to get the initial and current values.
+
+#### style
 
 TBW
 
 ## User input and safety
 
-* No "safe" or "raw" HTML input
+- No "safe" or "raw" HTML input
 
 TBW
 
