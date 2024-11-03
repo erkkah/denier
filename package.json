@@ -5,7 +5,7 @@
     "name": "Erik Agsjö"
   },
   "license": "MIT",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "source": "src/index.ts",
   "main": "lib/index.js",
   "module": "lib/module.js",

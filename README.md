@@ -207,7 +207,7 @@ Then use the `build` directive:
 ```typescript
 html`
     ${
-      // Build a template, initiated with the provided state.
+      // Build a template, initialized with the provided state.
       // The template gets updated on state changes.
       build(
         CounterState,
@@ -224,13 +224,7 @@ html`
 
 > Note the difference between using static and dynamic evaluation to get the initial and current values.
 
-#### style
-
-TBW
-
-## User input and safety
-
-- No "safe" or "raw" HTML input
+#### `style`
 
 TBW
 
