@@ -56,17 +56,17 @@ export abstract class ElementDirective extends DenierDirective {
   abstract process(e: Element): RenderResult;
 }
 
-class EventDirective extends AttributeDirective {
-  constructor(private event: string, private handler: () => void) {
+class EventDirective<E extends Event> extends AttributeDirective {
+  constructor(private event: string, private handler: (e: E) => void) {
     super();
   }
 
   override process(e: Element): void {
-    e.addEventListener(this.event, this.handler);
+    e.addEventListener(this.event, this.handler as (e: Event) => void);
   }
 }
 
-export function on(event: string, handler: () => void): EventDirective {
+export function on<E extends Event>(event: string, handler: (e: E) => void): EventDirective<E> {
   return new EventDirective(event, handler);
 }
 
@@ -90,11 +90,10 @@ class FlagDirective extends AttributeDirective {
   }
 
   override process(e: Element): void {
-      e.toggleAttribute(this.flag, this.state);
+    e.toggleAttribute(this.flag, this.state);
   }
 }
 
 export function flag(flag: string, state: boolean): FlagDirective {
   return new FlagDirective(flag, state);
 }
-
