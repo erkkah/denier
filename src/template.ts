@@ -50,6 +50,7 @@ export class DenierTemplate {
    * @returns this template, to allow for chaining
    */
   render(host: ChildNode): this {
+    assert(host.isConnected);
     try {
       const directives: DenierDirective[] = this.substitutions.map((sub) =>
         makeDirective(sub)
@@ -114,6 +115,7 @@ export class DenierTemplate {
             const d = getDirective(id);
             debugTraceBegin("directive", d.constructor.name);
             lastRendered = d.render(node as Comment);
+            this.rendered = this.rendered.flatMap((r) => r === node ? lastRendered : r);
             debugTraceEnd("directive");
             directivesDone.add(id);
           }
@@ -128,6 +130,7 @@ export class DenierTemplate {
               const d = getDirective(id);
               debugTraceBegin("directive", d.constructor.name);
               lastRendered = d.render(elem);
+              this.rendered = this.rendered.flatMap((r) => r === elem ? lastRendered : r);
               debugTraceEnd("directive");
               directivesDone.add(id);
               if (!DEBUG) {
