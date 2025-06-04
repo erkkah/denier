@@ -1,7 +1,7 @@
 import { DenierDirective, RenderResult } from "./directives";
 
 // @ts-ignore
-export const DEBUG = process.env.NODE_ENV !== "production";
+export const DEBUG = process.env.NODE_ENV !== "production" || window.DEBUG;
 
 const lineStyle = DEBUG
   ? `
