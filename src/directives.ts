@@ -1,3 +1,4 @@
+import { assert } from "./debug";
 import { randomID } from "./id";
 
 export type Constructor<T extends Object> = { new (...args: any): T };
@@ -36,16 +37,28 @@ export abstract class DenierDirective {
 }
 
 export abstract class AttributeDirective extends DenierDirective {
+  private _host?: ChildNode;
+
+  protected get element(): HTMLElement {
+    assert(this._host);
+    return this._host as HTMLElement;
+  }
+
   override code() {
     return this.attr;
   }
 
   override render(host: ChildNode): RenderResult {
-    this.process(host as Element);
+    this._host = host;
+    this.process();
     return [host];
   }
 
-  abstract process(e: Element): void;
+  override update() {
+    this.process();
+  }
+
+  abstract process(): void;
 }
 
 export abstract class ElementDirective extends DenierDirective {
@@ -61,8 +74,8 @@ class EventDirective<E extends Event> extends AttributeDirective {
     super();
   }
 
-  override process(e: Element): void {
-    e.addEventListener(this.event, this.handler as (e: Event) => void);
+  override process(): void {
+    this.element.addEventListener(this.event, this.handler as (e: Event) => void);
   }
 }
 
@@ -70,30 +83,31 @@ export function on<E extends Event>(event: string, handler: (e: E) => void): Eve
   return new EventDirective(event, handler);
 }
 
-class RefDirective<T extends Element> extends AttributeDirective {
+class RefDirective<T extends HTMLElement> extends AttributeDirective {
   constructor(private cb: (e: T) => void) {
     super();
   }
 
-  override process(e: Element) {
-    this.cb(e as T);
+  override process(): void {
+    this.cb(this.element as T);
   }
 }
 
-export function ref<T extends Element>(cb: (e: T) => void): RefDirective<T> {
+export function ref<T extends HTMLElement>(cb: (e: T) => void): RefDirective<T> {
   return new RefDirective(cb);
 }
 
 class FlagDirective extends AttributeDirective {
-  constructor(private flag: string, private state: boolean) {
+  constructor(private flag: string, private state: boolean | (() => boolean)) {
     super();
   }
 
-  override process(e: Element): void {
-    e.toggleAttribute(this.flag, this.state);
+  override process(): void {
+    const set = typeof this.state === "function" ? this.state() : this.state;
+    this.element.toggleAttribute(this.flag, set);
   }
 }
 
-export function flag(flag: string, state: boolean): FlagDirective {
+export function flag(flag: string, state: boolean | (() => boolean)): FlagDirective {
   return new FlagDirective(flag, state);
 }

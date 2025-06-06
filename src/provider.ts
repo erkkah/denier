@@ -32,8 +32,8 @@ class Provider extends AttributeDirective {
     );
   }
 
-  override process(e: Element): void {
-    const context = getContext(e);
+  override process(): void {
+    const context = getContext(this.element);
     for (const value of this._values) {
       const type = value.constructor.name;
       context[type] = value;

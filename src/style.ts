@@ -6,9 +6,9 @@ class StyleDirective extends AttributeDirective {
     super();
   }
 
-  process(e: HTMLElement): void {
+  process(): void {
     const style = typeof this.style === "function" ? this.style() : this.style;
-    Object.assign(e.style, style);
+    Object.assign(this.element.style, style);
   }
 }
 
