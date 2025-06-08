@@ -85,7 +85,7 @@ export function debugTraceException(err: any) {
   if (lastNode) {
     const errorElement = document.createElement("denier-error");
     errorElement.innerHTML = `❌ ${err.message}`;
-    errorElement.appendChild(errorStyle())
+    errorElement.appendChild(errorStyle());
     if (lastNode instanceof Comment) {
       lastNode.replaceWith(errorElement);
       lastNode = errorElement;
@@ -126,7 +126,7 @@ export function debugShowTemplateError(
     range.setEndAfter(end);
 
     const errorNode = document.createElement("denier-error-region");
-    errorNode.appendChild(errorStyle())
+    errorNode.appendChild(errorStyle());
     range.surroundContents(errorNode);
     debugTraceBegin("node", errorNode);
   }

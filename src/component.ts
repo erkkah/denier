@@ -18,6 +18,9 @@ export abstract class DenierComponent extends ElementDirective {
   override process(host: Element): RenderResult {
     const t = this.template;
     if (t.isRendered) {
+      if (!t.isConnected) {
+        t.mount(host);
+      }
       t.update();
     } else {
       t.render(host);

@@ -70,7 +70,9 @@ export class DenierTemplate {
       }
 
       const t: HTMLTemplateElement = document.createElement("template");
-      t.innerHTML = this.code + (this._styleCode ? `<style>${this._styleCode}</style>`: "");
+      t.innerHTML =
+        this.code +
+        (this._styleCode ? `<style>${this._styleCode}</style>` : "");
       const fragment = t.content;
 
       const w = document.createTreeWalker(
@@ -115,7 +117,9 @@ export class DenierTemplate {
             const d = getDirective(id);
             debugTraceBegin("directive", d.constructor.name);
             lastRendered = d.render(node as Comment);
-            this.rendered = this.rendered.flatMap((r) => r === node ? lastRendered : r);
+            this.rendered = this.rendered.flatMap((r) =>
+              r === node ? lastRendered : r
+            );
             debugTraceEnd("directive");
             directivesDone.add(id);
           }
@@ -130,7 +134,9 @@ export class DenierTemplate {
               const d = getDirective(id);
               debugTraceBegin("directive", d.constructor.name);
               lastRendered = d.render(elem);
-              this.rendered = this.rendered.flatMap((r) => r === elem ? lastRendered : r);
+              this.rendered = this.rendered.flatMap((r) =>
+                r === elem ? lastRendered : r
+              );
               debugTraceEnd("directive");
               directivesDone.add(id);
               if (!DEBUG) {
@@ -181,6 +187,10 @@ export class DenierTemplate {
     return !!this.rendered;
   }
 
+  get isConnected(): boolean {
+    return this.rendered != null && this.rendered[0].isConnected;
+  }
+
   get renderedResult(): RenderResult {
     if (!this.rendered) {
       throw new Error("Node is not rendered");
@@ -229,7 +239,7 @@ export class DenierTemplate {
    *
    * It is an error to mount an unrendered template.
    */
-  private mount(host: ChildNode) {
+  mount(host: ChildNode) {
     if (!this.rendered) {
       throw new Error("Cannot mount unrendered template");
     }
