@@ -7,13 +7,13 @@ import {
 } from "./directives";
 import { DenierTemplate } from "./template";
 
-type DenierContext = Record<string, unknown>;
-type DenierContextHolder = Element & { _denierContext?: DenierContext };
+type DenierContext<T> = Map<Function, T>;
+type DenierContextHolder<T> = Element & { _denierContext?: DenierContext<T> };
 
-function getContext(e: Element): DenierContext {
-  const holder = e as DenierContextHolder;
+function getContext<T>(e: Element): DenierContext<T> {
+  const holder = e as DenierContextHolder<T>;
   if (!holder._denierContext) {
-    holder._denierContext = {};
+    holder._denierContext = new Map();
   }
   return holder._denierContext;
 }
@@ -35,8 +35,8 @@ class Provider extends AttributeDirective {
   override process(): void {
     const context = getContext(this.element);
     for (const value of this._values) {
-      const type = value.constructor.name;
-      context[type] = value;
+      const type = value.constructor;
+      context.set(type, value);
     }
   }
 }
@@ -49,14 +49,12 @@ export function findContext<T extends Object>(
   e: Element,
   t: Constructor<T>
 ): T | undefined {
-  const className = t.name;
-
-  while (e && (!hasContext(e) || !(className in getContext(e)))) {
+  while (e && (!hasContext(e) || !(getContext(e).has(t)))) {
     e = e.parentElement as Element;
   }
   if (e) {
-    const context = getContext(e);
-    return context[className] as T;
+    const context = getContext<T>(e);
+    return context.get(t);
   }
   return undefined;
 }
